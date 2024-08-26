@@ -7,6 +7,19 @@ from django.core.files import File
 from .models import DownloadTask
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from django.core.signing import TimestampSigner
+from django.conf import settings
+import urllib.parse
+
+signer = TimestampSigner()
+
+
+def generate_signed_url(filename: str) -> str:
+    print("Generating signed URL")
+    file_name_only = os.path.basename(filename)  # Extract only the filename
+    signed_filename = signer.sign(file_name_only)
+    signed_filename = urllib.parse.quote(signed_filename)  # URL-encode the signed filename
+    return f"{settings.DOMAIN}/download/{signed_filename}"
 
 def run_ffmpeg_with_progress(cmd, task, channel_layer):
     try:
@@ -134,12 +147,15 @@ def download_video(task_id):
                     )
                     raise
 
+            # Generate the signed URL
+            download_url = generate_signed_url(task.file.name)
+
             task.status = 'Completed'
             task.progress = 100.0
             task.save()
             async_to_sync(channel_layer.group_send)(
                 f"task_{task.id}",
-                {"type": "status.update", "status": task.status, "progress": task.progress, "download_url": task.file.url}
+                {"type": "status.update", "status": task.status, "progress": task.progress, "download_url": download_url}
             )
 
     except Exception as e:

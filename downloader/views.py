@@ -7,7 +7,9 @@ import json
 import os
 from django.conf import settings
 from django.http import HttpResponse, Http404
-from django.core.signing import Signer, BadSignature, SignatureExpired, TimestampSigner
+from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
+import urllib.parse
+
 
 @csrf_exempt  # Make sure to remove this in production if CSRF protection is re-enabled
 def start_download(request):
@@ -51,19 +53,27 @@ def index(request):
 
 signer = TimestampSigner()
 
-def download_file(request, signed_value):
+signer = TimestampSigner()
+
+def download_file(request, signed_filename):
     try:
-        # Unsign the value and ensure it is not expired (valid for 1 hour)
-        file_name = signer.unsign(signed_value, max_age=3600)  # 1 hour expiry
-        file_path = os.path.join(settings.MEDIA_ROOT, file_name)
-        
+        # URL-decode the signed filename
+        signed_filename = urllib.parse.unquote(signed_filename)
+
+        # Validate the signed value and ensure it hasn't expired (e.g., 24 hours)
+        filename = signer.unsign(signed_filename, max_age=86400)  # 24 hours expiration
+        file_path = os.path.join(settings.MEDIA_ROOT, 'downloads', filename)  # Prepend downloads directory
+
         if not os.path.exists(file_path):
             raise Http404("File not found")
-        
+
         # Serve the file for download
         with open(file_path, 'rb') as file:
             response = HttpResponse(file.read(), content_type="application/octet-stream")
-            response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_name)}"'
+            response['Content-Disposition'] = f'attachment; filename="{os.path.basename(filename)}"'
             return response
-    except (BadSignature, SignatureExpired):
-        raise Http404("Invalid or expired link")
+
+    except SignatureExpired:
+        return HttpResponse("Link expired", status=410)
+    except BadSignature:
+        return HttpResponse("Invalid link", status=400)
