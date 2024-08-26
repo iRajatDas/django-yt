@@ -13,7 +13,6 @@ import urllib.parse
 
 signer = TimestampSigner()
 
-
 def generate_signed_url(filename: str) -> str:
     print("Generating signed URL")
     file_name_only = os.path.basename(filename)  # Extract only the filename
@@ -60,6 +59,10 @@ def run_ffmpeg_with_progress(cmd, task, channel_layer):
         async_to_sync(channel_layer.group_send)(
             f"task_{task.id}",
             {"type": "status.update", "status": task.status, "error": str(e)}
+        )
+        async_to_sync(channel_layer.group_send)(
+            f"task_{task.id}",
+            {"type": "websocket.close"}
         )
         raise
 
@@ -132,6 +135,10 @@ def download_video(task_id):
                         f"task_{task.id}",
                         {"type": "status.update", "status": task.status, "error": f"File saving failed: {str(e)}"}
                     )
+                    async_to_sync(channel_layer.group_send)(
+                        f"task_{task.id}",
+                        {"type": "websocket.close"}
+                    )
                     raise
 
             else:
@@ -145,6 +152,10 @@ def download_video(task_id):
                         f"task_{task.id}",
                         {"type": "status.update", "status": task.status, "error": f"File saving failed: {str(e)}"}
                     )
+                    async_to_sync(channel_layer.group_send)(
+                        f"task_{task.id}",
+                        {"type": "websocket.close"}
+                    )
                     raise
 
             # Generate the signed URL
@@ -157,6 +168,10 @@ def download_video(task_id):
                 f"task_{task.id}",
                 {"type": "status.update", "status": task.status, "progress": task.progress, "download_url": download_url}
             )
+            async_to_sync(channel_layer.group_send)(
+                f"task_{task.id}",
+                {"type": "websocket.close"}
+            )
 
     except Exception as e:
         task.status = 'Failed'
@@ -165,11 +180,14 @@ def download_video(task_id):
             f"task_{task.id}",
             {"type": "status.update", "status": task.status, "error": str(e)}
         )
+        async_to_sync(channel_layer.group_send)(
+            f"task_{task.id}",
+            {"type": "websocket.close"}
+        )
     finally:
         try:
             os.remove(video_filename)
             os.remove(audio_filename)
             os.remove(output_video)
         except Exception as cleanup_error:
-            # Log the cleanup error if necessary, but do not overwrite the original failure reason
             print(f"Cleanup failed: {str(cleanup_error)}")

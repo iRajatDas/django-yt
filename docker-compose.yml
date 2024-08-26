@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: uvicorn youtube_downloader.asgi:application --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - POSTGRES_DB=youtube_downloader_db
+      - POSTGRES_USER=rajat
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_HOST=db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+  worker:
+    build: .
+    command: celery -A youtube_downloader worker --loglevel=info
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+    environment:
+      - POSTGRES_DB=youtube_downloader_db
+      - POSTGRES_USER=rajat
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_HOST=db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+  db:
+    image: postgres:16
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: youtube_downloader_db
+      POSTGRES_USER: rajat
+      POSTGRES_PASSWORD: secret
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:

@@ -5,11 +5,13 @@ from .tasks import download_video
 from django.views.decorators.csrf import csrf_exempt
 import json
 import os
+import re
 from django.conf import settings
 from django.http import HttpResponse, Http404
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 import urllib.parse
-
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
 
 @csrf_exempt  # Make sure to remove this in production if CSRF protection is re-enabled
 def start_download(request):
@@ -23,6 +25,24 @@ def start_download(request):
             if not url:
                 return JsonResponse({'error': 'URL is required'}, status=400)
 
+            # Validate the URL format
+            url_validator = URLValidator()
+            try:
+                url_validator(url)
+            except ValidationError:
+                return JsonResponse({'error': 'Invalid URL format'}, status=400)
+
+            # Validate YouTube and YouTube Shorts URLs
+            youtube_regex = (
+                r'(https?://)?(www\.)?'
+                r'(youtube|youtu|youtube-nocookie)\.(com|be)/'
+                r'(watch\?v=|embed/|v/|.+\?v=|shorts/)?([^&=%\?]{11})'
+            )
+
+            if not re.match(youtube_regex, url):
+                return JsonResponse({'error': 'Invalid YouTube URL or YouTube Shorts URL'}, status=400)
+
+            # Create the task if the URL is valid
             task = DownloadTask.objects.create(
                 url=url,
                 resolution=resolution,
