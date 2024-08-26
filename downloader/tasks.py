@@ -10,15 +10,47 @@ from asgiref.sync import async_to_sync
 from django.core.signing import TimestampSigner
 from django.conf import settings
 import urllib.parse
+import logging
+import boto3
+from botocore.exceptions import NoCredentialsError
+
+logger = logging.getLogger(__name__)
 
 signer = TimestampSigner()
 
 def generate_signed_url(filename: str) -> str:
-    print("Generating signed URL")
+    """Generate a signed URL for local storage."""
+    logger.info("Generating signed URL for local storage")
     file_name_only = os.path.basename(filename)  # Extract only the filename
     signed_filename = signer.sign(file_name_only)
     signed_filename = urllib.parse.quote(signed_filename)  # URL-encode the signed filename
     return f"{settings.DOMAIN}/download/{signed_filename}"
+
+def generate_s3_signed_url(file_name: str) -> str:
+    """Generate a pre-signed URL for S3 storage that forces a download."""
+    try:
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=settings.CLOUDFLARE_R2_CONFIG_OPTIONS['endpoint_url'],
+            aws_access_key_id=settings.CLOUDFLARE_R2_CONFIG_OPTIONS['access_key'],
+            aws_secret_access_key=settings.CLOUDFLARE_R2_CONFIG_OPTIONS['secret_key'],
+            config=boto3.session.Config(signature_version='s3v4')            
+        )
+        bucket_name = settings.CLOUDFLARE_R2_CONFIG_OPTIONS['bucket_name']
+        presigned_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': bucket_name,
+                'Key': file_name,
+                'ResponseContentDisposition': f'attachment; filename="{os.path.basename(file_name)}"'
+            },
+            ExpiresIn=3600  # URL expires in 1 hour
+        )
+        return presigned_url
+    except NoCredentialsError:
+        logger.error("Credentials not available for S3.")
+        return None
+
 
 def run_ffmpeg_with_progress(cmd, task, channel_layer):
     try:
@@ -54,6 +86,7 @@ def run_ffmpeg_with_progress(cmd, task, channel_layer):
             raise subprocess.CalledProcessError(process.returncode, cmd)
         return process.returncode
     except Exception as e:
+        logger.error(f"Error running ffmpeg: {str(e)}")
         task.status = 'Failed'
         task.save()
         async_to_sync(channel_layer.group_send)(
@@ -129,6 +162,7 @@ def download_video(task_id):
                     with open(output_video, 'rb') as f:
                         task.file.save(f'{yt.title}.mp4', File(f))
                 except Exception as e:
+                    logger.error(f"File saving failed: {str(e)}")
                     task.status = 'Failed'
                     task.save()
                     async_to_sync(channel_layer.group_send)(
@@ -146,6 +180,7 @@ def download_video(task_id):
                     with open(video_filename, 'rb') as f:
                         task.file.save(f'{yt.title}.mp4', File(f))
                 except Exception as e:
+                    logger.error(f"File saving failed: {str(e)}")
                     task.status = 'Failed'
                     task.save()
                     async_to_sync(channel_layer.group_send)(
@@ -158,8 +193,11 @@ def download_video(task_id):
                     )
                     raise
 
-            # Generate the signed URL
-            download_url = generate_signed_url(task.file.name)
+            # Conditionally generate URL based on storage backend
+            if settings.STORAGES['default']['BACKEND'] == 'storages.backends.s3boto3.S3Boto3Storage':
+                download_url = generate_s3_signed_url(task.file.name)
+            else:
+                download_url = generate_signed_url(task.file.name)
 
             task.status = 'Completed'
             task.progress = 100.0
@@ -174,6 +212,7 @@ def download_video(task_id):
             )
 
     except Exception as e:
+        logger.error(f"Error downloading video: {str(e)}")
         task.status = 'Failed'
         task.save()
         async_to_sync(channel_layer.group_send)(
@@ -190,4 +229,4 @@ def download_video(task_id):
             os.remove(audio_filename)
             os.remove(output_video)
         except Exception as cleanup_error:
-            print(f"Cleanup failed: {str(cleanup_error)}")
+            logger.error(f"Cleanup failed: {str(cleanup_error)}")

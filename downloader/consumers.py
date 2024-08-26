@@ -1,3 +1,4 @@
+# downloader/consumers.py
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 
@@ -5,7 +6,7 @@ class DownloadProgressConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.task_id = self.scope['url_route']['kwargs']['task_id']
         self.task_group_name = f'task_{self.task_id}'
-        
+
         await self.channel_layer.group_add(
             self.task_group_name,
             self.channel_name
@@ -29,3 +30,7 @@ class DownloadProgressConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'progress': event['progress']
         }))
+
+    async def websocket_close(self, event):
+        # Handle the close event here if necessary.
+        pass
