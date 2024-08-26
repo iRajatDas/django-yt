@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-     'channels',
+    'channels',
     'downloader',
     'django_celery_results',
     'django_celery_beat',
@@ -92,6 +92,7 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # Media settings
 MEDIA_URL = '/media/'

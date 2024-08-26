@@ -1,12 +1,54 @@
+import subprocess
 from celery import shared_task
 from pytubefix import YouTube
 import tempfile
 import os
-import subprocess
 from django.core.files import File
 from .models import DownloadTask
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+
+def run_ffmpeg_with_progress(cmd, task, channel_layer):
+    try:
+        process = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
+
+        total_duration = None
+        for line in process.stderr:
+            if 'Duration:' in line:
+                time_str = line.split('Duration:')[1].split(',')[0].strip()
+                h, m, s = time_str.split(':')
+                total_duration = int(h) * 3600 + int(m) * 60 + float(s)
+            if 'time=' in line:
+                time_str = line.split('time=')[1].split(' ')[0].strip()
+                h, m, s = time_str.split(':')
+                current_time = int(h) * 3600 + int(m) * 60 + float(s)
+                if total_duration:
+                    progress = (current_time / total_duration) * 100
+                    task.progress = progress
+                    task.save()
+                    async_to_sync(channel_layer.group_send)(
+                        f"task_{task.id}",
+                        {"type": "progress.update", "progress": task.progress}
+                    )
+
+        process.wait()
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, cmd)
+        return process.returncode
+    except Exception as e:
+        task.status = 'Failed'
+        task.save()
+        async_to_sync(channel_layer.group_send)(
+            f"task_{task.id}",
+            {"type": "status.update", "status": task.status, "error": str(e)}
+        )
+        raise
 
 @shared_task
 def download_video(task_id):
@@ -65,14 +107,32 @@ def download_video(task_id):
                 )
 
                 merge_cmd = f"ffmpeg -y -i '{video_filename}' -i '{audio_filename}' -c:v copy -map 0:v:0 -map 1:a:0 -shortest '{output_video}'"
-                subprocess.call(merge_cmd, shell=True)
+                run_ffmpeg_with_progress(merge_cmd, task, channel_layer)
 
-                with open(output_video, 'rb') as f:
-                    task.file.save(f'{yt.title}.mp4', File(f))
+                try:
+                    with open(output_video, 'rb') as f:
+                        task.file.save(f'{yt.title}.mp4', File(f))
+                except Exception as e:
+                    task.status = 'Failed'
+                    task.save()
+                    async_to_sync(channel_layer.group_send)(
+                        f"task_{task.id}",
+                        {"type": "status.update", "status": task.status, "error": f"File saving failed: {str(e)}"}
+                    )
+                    raise
 
             else:
-                with open(video_filename, 'rb') as f:
-                    task.file.save(f'{yt.title}.mp4', File(f))
+                try:
+                    with open(video_filename, 'rb') as f:
+                        task.file.save(f'{yt.title}.mp4', File(f))
+                except Exception as e:
+                    task.status = 'Failed'
+                    task.save()
+                    async_to_sync(channel_layer.group_send)(
+                        f"task_{task.id}",
+                        {"type": "status.update", "status": task.status, "error": f"File saving failed: {str(e)}"}
+                    )
+                    raise
 
             task.status = 'Completed'
             task.progress = 100.0
@@ -82,7 +142,18 @@ def download_video(task_id):
                 {"type": "status.update", "status": task.status, "progress": task.progress, "download_url": task.file.url}
             )
 
+    except Exception as e:
+        task.status = 'Failed'
+        task.save()
+        async_to_sync(channel_layer.group_send)(
+            f"task_{task.id}",
+            {"type": "status.update", "status": task.status, "error": str(e)}
+        )
     finally:
-        os.remove(video_filename)
-        os.remove(audio_filename)
-        os.remove(output_video)
+        try:
+            os.remove(video_filename)
+            os.remove(audio_filename)
+            os.remove(output_video)
+        except Exception as cleanup_error:
+            # Log the cleanup error if necessary, but do not overwrite the original failure reason
+            print(f"Cleanup failed: {str(cleanup_error)}")
