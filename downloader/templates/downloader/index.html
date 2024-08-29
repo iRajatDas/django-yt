@@ -1,33 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>YouTube Downloader Test</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        input, button {
-            padding: 10px;
-            margin: 5px 0;
-        }
-        #status, #progress, #result {
-            margin-top: 20px;
-        }
-    </style>
-</head>
-<body>
-    <h1>YouTube Downloader Test</h1>
-    
-    <div>
-        <h2>Create Download Request</h2>
-        <input type="text" 
-            value="https://www.youtube.com/shorts/9Uq8-1BjsPk"
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-gray-100 text-gray-900 font-sans antialiased">
+    <div class="max-w-lg mx-auto mt-10 p-8 bg-white shadow-lg rounded-lg">
+      <h1 class="text-2xl font-bold mb-6 text-center">YouTube Downloader</h1>
 
-        id="url" placeholder="Enter YouTube URL" size="50">
-        <select id="resolution">
+      <div>
+        <h2 class="text-lg font-semibold mb-4">Create Download Request</h2>
+        <div class="mb-4">
+          <input
+            type="text"
+            id="url"
+            placeholder="Enter YouTube URL"
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div class="mb-4">
+          <label for="resolution" class="block text-gray-700 font-semibold mb-2">Resolution</label>
+          <select
+            id="resolution"
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
             <option value="highest-available">Highest Available</option>
             <option value="1080p">1080p</option>
             <option value="720p">720p</option>
@@ -35,118 +36,144 @@
             <option value="360p">360p</option>
             <option value="240p">240p</option>
             <option value="144p">144p</option>
-        </select>
-        <label>
-            <input type="checkbox" 
-            id="include_audio" checked> Include Audio
-        </label>
-        <button id="startDownload">Start Download</button>
+          </select>
+        </div>
+        <div class="flex items-center mb-6">
+          <input
+            type="checkbox"
+            id="include_audio"
+            checked
+            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+          <label for="include_audio" class="ml-2 block text-gray-700 font-semibold">Include Audio</label>
+        </div>
+        <div class="text-center">
+          <button
+            id="startDownload"
+            class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+          >
+            Start Download
+          </button>
+        </div>
+      </div>
+
+      <div id="status" class="mt-6 text-center text-lg text-gray-700"></div>
+      <div id="progress" class="mt-4 text-center text-lg text-blue-600"></div>
+      <div id="result" class="mt-4 text-center text-lg text-green-600"></div>
+      <div id="error" class="mt-4 text-center text-lg text-red-600"></div>
     </div>
 
-    <div id="status"></div>
-    <div id="progress"></div>
-    <div id="result"></div>
-
     <script>
-        // Get the CSRF token from the cookie
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
+      function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== "") {
+          const cookies = document.cookie.split(";");
+          for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === name + "=") {
+              cookieValue = decodeURIComponent(
+                cookie.substring(name.length + 1)
+              );
+              break;
             }
-            return cookieValue;
+          }
+        }
+        return cookieValue;
+      }
+
+      const csrftoken = getCookie("csrftoken");
+
+      const urlInput = document.getElementById("url");
+      const resolutionInput = document.getElementById("resolution");
+      const includeAudioInput = document.getElementById("include_audio");
+      const startDownloadButton = document.getElementById("startDownload");
+      const statusDiv = document.getElementById("status");
+      const progressDiv = document.getElementById("progress");
+      const resultDiv = document.getElementById("result");
+      const errorDiv = document.getElementById("error");
+
+      let taskId = null;
+      let socket = null;
+
+      startDownloadButton.addEventListener("click", async () => {
+        const url = urlInput.value;
+        const resolution = resolutionInput.value;
+        const includeAudio = includeAudioInput.checked;
+
+        if (!url) {
+          alert("Please enter a valid YouTube URL.");
+          return;
         }
 
-        const csrftoken = getCookie('csrftoken');
+        statusDiv.innerText = "Creating download request...";
+        progressDiv.innerText = "";
+        resultDiv.innerText = "";
+        errorDiv.innerText = "";
 
-        const urlInput = document.getElementById('url');
-        const resolutionInput = document.getElementById('resolution');
-        const includeAudioInput = document.getElementById('include_audio');
-        const startDownloadButton = document.getElementById('startDownload');
-        const statusDiv = document.getElementById('status');
-        const progressDiv = document.getElementById('progress');
-        const resultDiv = document.getElementById('result');
+        try {
+          const response = await fetch("/start_download/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": csrftoken, // Include the CSRF token in the request
+            },
+            body: JSON.stringify({
+              url: url,
+              resolution: resolution,
+              include_audio: includeAudio,
+            }),
+          });
 
-        let taskId = null;
-        let socket = null;
+          if (!response.ok) {
+            throw new Error("Failed to create download request.");
+          }
 
-        startDownloadButton.addEventListener('click', async () => {
-            const url = urlInput.value;
-            const resolution = resolutionInput.value;
-            const includeAudio = includeAudioInput.checked;
+          const data = await response.json();
+          taskId = data.task_id;
+          statusDiv.innerText = `Download request created with Task ID: ${taskId}`;
 
-            if (!url) {
-                alert('Please enter a valid YouTube URL.');
-                return;
-            }
-
-            statusDiv.innerText = 'Creating download request...';
-            progressDiv.innerText = '';
-            resultDiv.innerText = '';
-
-            try {
-                const response = await fetch('/start_download/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrftoken // Include the CSRF token in the request
-                    },
-                    body: JSON.stringify({
-                        url: url,
-                        resolution: resolution,
-                        include_audio: includeAudio
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to create download request.');
-                }
-
-                const data = await response.json();
-                taskId = data.task_id;
-                statusDiv.innerText = `Download request created with Task ID: ${taskId}`;
-
-                // Start listening for WebSocket messages
-                setupWebSocket();
-
-            } catch (error) {
-                statusDiv.innerText = `Error: ${error.message}`;
-            }
-        });
-
-        function setupWebSocket() {
-            if (socket) {
-                socket.close();
-            }
-
-            // Connect to the WebSocket server
-            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-            socket = new WebSocket(`${protocol}://${window.location.host}/ws/download/${taskId}/`);
-
-            socket.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                if (data.status) {
-                    statusDiv.innerText = `Status: ${data.status}`;
-                }
-                if (data.progress) {
-                    progressDiv.innerText = `Progress: ${data.progress}%`;
-                }
-                if (data.download_url) {
-                    resultDiv.innerHTML = `<a href="${data.download_url}" target="_blank">Download File</a>`;
-                }
-            };
-
-            socket.onclose = function() {
-                console.log('WebSocket connection closed.');
-            };
+          // Start listening for WebSocket messages
+          setupWebSocket();
+        } catch (error) {
+          errorDiv.innerText = `Error: ${error.message}`;
         }
+      });
+
+      function setupWebSocket() {
+        if (socket) {
+          socket.close();
+        }
+
+        // Connect to the WebSocket server
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        socket = new WebSocket(
+          `${protocol}://${window.location.host}/ws/download/${taskId}/`
+        );
+
+        socket.onmessage = function (event) {
+          const data = JSON.parse(event.data);
+          if (data.status) {
+            statusDiv.innerText = `Status: ${data.status}`;
+          }
+          if (data.progress) {
+            progressDiv.innerText = `Progress: ${data.progress}%`;
+          }
+          if (data.download_url) {
+            resultDiv.innerHTML = `<a href="${data.download_url}" target="_blank" class="text-blue-600 underline">Download File</a>`;
+          }
+          if (data.error) {
+            errorDiv.innerText = `Error: ${data.error}`;
+          }
+        };
+
+        socket.onerror = function () {
+          errorDiv.innerText = "WebSocket error occurred.";
+        };
+
+        socket.onclose = function () {
+          console.log("WebSocket connection closed.");
+        };
+      }
     </script>
-</body>
+  </body>
 </html>
