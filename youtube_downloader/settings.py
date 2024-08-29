@@ -189,16 +189,6 @@ CLOUDFLARE_R2_CONFIG_OPTIONS = {
     "region_name": "auto"
 }
 
-# CLOUDFLARE_R2_CONFIG_OPTIONS = {
-#     "bucket_name": "digitalocean",
-#     "default_acl": "public-read",  # or "private"
-#     "signature_version": "s3v4",
-#     "endpoint_url": "https://d3e89dc166edc0c2c8ab4c138097dfd7.r2.cloudflarestorage.com",
-#     "access_key": "9957947f4180a5e3d98c15eb75a37779",
-#     "secret_key": "f896d0c8ac50df859cef4f22a3db97208be0e7ca0eeee577eb5968632a38718a",
-#     "region_name": "auto"
-# }
-
 # Introduced in Django 4.2
 STORAGES = {
     "default": {
