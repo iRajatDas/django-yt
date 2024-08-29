@@ -23,7 +23,10 @@
     
     <div>
         <h2>Create Download Request</h2>
-        <input type="text" id="url" placeholder="Enter YouTube URL" size="50">
+        <input type="text" 
+            value="https://www.youtube.com/shorts/9Uq8-1BjsPk"
+
+        id="url" placeholder="Enter YouTube URL" size="50">
         <select id="resolution">
             <option value="highest-available">Highest Available</option>
             <option value="1080p">1080p</option>
@@ -34,7 +37,8 @@
             <option value="144p">144p</option>
         </select>
         <label>
-            <input type="checkbox" id="include_audio" checked> Include Audio
+            <input type="checkbox" 
+            id="include_audio" checked> Include Audio
         </label>
         <button id="startDownload">Start Download</button>
     </div>
@@ -122,7 +126,9 @@
                 socket.close();
             }
 
-            socket = new WebSocket(`ws://${window.location.host}/ws/download/${taskId}/`);
+            // Connect to the WebSocket server
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            socket = new WebSocket(`${protocol}://${window.location.host}/ws/download/${taskId}/`);
 
             socket.onmessage = function(event) {
                 const data = JSON.parse(event.data);
