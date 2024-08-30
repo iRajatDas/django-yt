@@ -80,6 +80,8 @@ platformdirs==4.2.2
 prompt_toolkit==3.0.47
 psutil==6.0.0
 psycopg==3.2.1
+psycopg-binary==3.2.1
+psycopg-c==3.2.1
 psycopg2==2.9.9
 psycopg2-binary==2.9.9
 pyasn1==0.6.0
