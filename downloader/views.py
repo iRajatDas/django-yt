@@ -50,15 +50,23 @@ def start_download(request):
         except ValidationError:
             return JsonResponse({"error": "Invalid URL"}, status=400)
 
-        # Create the task if the URL is valid
+        # Create the task
         task = DownloadTask.objects.create(
             url=url,
             resolution=resolution,
             include_audio=include_audio,
             status="Pending",
-            callback_url=f"{request.scheme}://{request.get_host()}/ws/download/{task.id}",
         )
+
+        # Update the task with callback URL
+        task.callback_url = (
+            f"{request.scheme}://{request.get_host()}/ws/download/{task.id}"
+        )
+        task.save()
+
+        # Start the download process
         download_video.delay(str(task.id))
+
         return JsonResponse(
             {
                 "task_id": str(task.id),
@@ -72,7 +80,6 @@ def start_download(request):
     except Exception as e:
         logger.error(f"Error starting download: {e}", exc_info=True)
         return JsonResponse({"error": "Internal server error"}, status=500)
-
 
 def check_status(request, task_id):
     task = get_object_or_404(DownloadTask, id=task_id)
