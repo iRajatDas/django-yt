@@ -51,6 +51,7 @@ def advisory_lock(lock_key):
             if acquired:
                 cursor.execute(f"SELECT pg_advisory_unlock({lock_key});")
 
+
 @contextmanager
 def redis_lock(lock_name, timeout=60):
     """Context manager for Redis locking."""
@@ -127,7 +128,11 @@ def run_ffmpeg_with_progress(cmd, task, channel_layer):
                     task.save()
                     async_to_sync(channel_layer.group_send)(
                         f"task_{task.id}",
-                        {"type": "progress.update", "progress": task.progress},
+                        {
+                            "type": "progress.update",
+                            "progress": task.progress,
+                            "progress_type": "merge",
+                        },
                     )
 
         process.wait()
@@ -160,7 +165,7 @@ def download_video(task_id):
             return
 
     def notify_status_update(
-        status, progress=None, download_url=None, error_message=None
+        status, progress=None, progress_type=None, download_url=None, error_message=None
     ):
         async_to_sync(channel_layer.group_send)(
             f"task_{task.id}",
@@ -168,6 +173,7 @@ def download_video(task_id):
                 "type": "status.update",
                 "status": status,
                 "progress": progress,
+                "progress_type": progress_type,
                 "download_url": download_url,
                 "error": error_message,
             },
@@ -204,7 +210,11 @@ def download_video(task_id):
                 task.save()
                 async_to_sync(channel_layer.group_send)(
                     f"task_{task.id}",
-                    {"type": "progress.update", "progress": task.progress},
+                    {
+                        "type": "progress.update",
+                        "progress": task.progress,
+                        "progress_type": "download",
+                    },
                 )
 
             yt.register_on_progress_callback(on_progress)
