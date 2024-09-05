@@ -29,3 +29,6 @@ COPY . .
 EXPOSE 8000
 
 CMD ["uvicorn", "youtube_downloader.asgi:application", "--host", "0.0.0.0", "--port", "8000"]
+# CMD ["daphne", "-u", "/tmp/daphne.sock", "youtube_downloader.asgi:application"]
+
+

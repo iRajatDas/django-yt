@@ -13,10 +13,57 @@ import urllib.parse
 import subprocess
 import boto3
 from botocore.exceptions import NoCredentialsError
+from django.db import connection
+from contextlib import contextmanager
+import redis
 
 logger = logging.getLogger(__name__)
 
 signer = TimestampSigner()
+
+# Initialize Redis connection
+redis_client = redis.StrictRedis(
+    host=os.environ.get("REDIS_HOST", "localhost"),
+    port=os.getenv("REDIS_PORT", 6379),
+    db=0,
+)
+
+# Check if the Redis connection is working
+try:
+    redis_client.ping()
+except redis.exceptions.ConnectionError:
+    logger.error("Redis connection error")
+    raise
+
+
+@contextmanager
+def advisory_lock(lock_key):
+    """PostgreSQL advisory lock."""
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT pg_try_advisory_lock({lock_key});")
+        acquired = cursor.fetchone()[0]
+        try:
+            if acquired:
+                yield True
+            else:
+                yield False
+        finally:
+            if acquired:
+                cursor.execute(f"SELECT pg_advisory_unlock({lock_key});")
+
+@contextmanager
+def redis_lock(lock_name, timeout=60):
+    """Context manager for Redis locking."""
+    lock = redis_client.lock(lock_name, timeout=timeout)
+    acquired = lock.acquire(blocking=False)
+    try:
+        if acquired:
+            yield True
+        else:
+            yield False
+    finally:
+        if acquired:
+            lock.release()
 
 
 def generate_signed_url(filename: str) -> str:
@@ -105,6 +152,12 @@ def run_ffmpeg_with_progress(cmd, task, channel_layer):
 def download_video(task_id):
     task = DownloadTask.objects.get(id=task_id)
     channel_layer = get_channel_layer()
+    lock_name = f"download-lock-{task.id}"
+
+    with redis_lock(lock_name) as acquired:
+        if not acquired:
+            logger.debug(f"Task already in progress for {task_id}")
+            return
 
     def notify_status_update(
         status, progress=None, download_url=None, error_message=None
