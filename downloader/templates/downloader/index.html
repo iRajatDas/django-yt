@@ -1,97 +1,88 @@
-<!DOCTYPE html>
-<html lang="en">
+<html>
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>YouTube Downloader</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      .hidden {
-        display: none;
-      }
-      .loader {
-        border: 4px solid #f3f3f3;
-        border-radius: 50%;
-        border-top: 4px solid #3498db;
-        width: 40px;
-        height: 40px;
-        animation: spin 2s linear infinite;
-        margin: 0 auto;
-      }
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-    </style>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link rel="stylesheet" as="style" onload="this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Manrope%3Awght%40400%3B500%3B700%3B800&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" />
+
+    <title>Galileo Design</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   </head>
-  <body class="bg-gray-100 text-gray-900 font-sans antialiased">
-    <div class="max-w-lg mx-auto mt-10 p-8 bg-white shadow-lg rounded-lg">
-      <h1 class="text-3xl font-bold mb-6 text-center text-blue-600">YouTube Downloader</h1>
-
-      <form id="downloadForm" class="space-y-6">
-        <div>
-          <label for="url" class="block text-gray-700 font-semibold">YouTube URL</label>
-          <input
-            type="url"
-            id="url"
-            required
-            placeholder="Enter YouTube URL"
-            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="YouTube URL"
-          />
+  <body>
+    <div class="group/design-root dark relative flex size-full min-h-screen flex-col justify-between overflow-x-hidden bg-black" style='font-family: Manrope, "Noto Sans", sans-serif;'>
+      <div>
+        <div class="flex flex-col gap-2 bg-black p-4 pb-2">
+          <div class="flex h-12 items-center justify-end"></div>
+          <p class="tracking-light text-[28px] font-bold leading-tight text-[#FFFFFF]">YouTube Video Downloader</p>
         </div>
-
-        <div>
-          <label for="resolution" class="block text-gray-700 font-semibold">Resolution</label>
-          <select
-            id="resolution"
-            required
-            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="Select resolution"
-          >
-            <option value="highest-available">Highest Available</option>
-            <option value="1080p">1080p</option>
-            <option value="720p">720p</option>
-            <option value="480p">480p</option>
+        <h1 class="px-4 pb-1 pt-4 text-sm leading-tight text-white/70">Paste video url below</h1>
+        <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+          <label class="flex min-w-40 flex-1 flex-col">
+            <div class="flex w-full flex-1 items-stretch rounded-lg">
+              <input
+                id="url"
+                type="url"
+                required
+                placeholder="Search"
+                class="form-input flex h-14 w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border border-r-0 border-[#303030] bg-[#212121] p-[15px] pr-2 text-base font-normal leading-normal text-[#FFFFFF] placeholder:text-[#ABABAB] focus:border-[#303030] focus:outline-0 focus:ring-0"
+                aria-label="YouTube URL"
+              />
+              <div class="flex items-center justify-center rounded-r-lg border border-l-0 border-[#303030] bg-[#212121] pr-[15px] text-[#ABABAB]" data-icon="ArrowRight" data-size="24px" data-weight="regular">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                  <path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"></path>
+                </svg>
+              </div>
+            </div>
+          </label>
+        </div>
+        <div class="flex gap-3 overflow-x-hidden p-3">
+          <select id="resolution" required class="form-select flex h-8 items-center justify-center gap-x-2 rounded-lg bg-[#292929] pl-4 pr-4 text-[#FFFFFF]">
             <option value="360p">360p</option>
-            <option value="240p">240p</option>
-            <option value="144p">144p</option>
+            <option value="720p">720p</option>
+            <option value="1080p">1080p</option>
           </select>
         </div>
-
-        <div class="flex items-center">
-          <input
-            type="checkbox"
-            id="include_audio"
-            class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            checked
-            aria-label="Include Audio"
-          />
-          <label for="include_audio" class="ml-2 block text-gray-700 font-semibold">Include Audio</label>
+        <div class="flex items-center px-4">
+          <input type="checkbox" id="include_audio" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" checked />
+          <label for="include_audio" class="ml-2 block text-white font-semibold">Include Audio</label>
         </div>
-
-        <div class="text-center">
+        <div class="flex flex-col gap-3 p-4">
+          <div class="flex justify-between gap-6">
+            <p class="text-base font-medium leading-normal text-[#FFFFFF]">Download Progress</p>
+            <p id="progressPercent" class="text-sm font-normal leading-normal text-[#FFFFFF]">0%</p>
+          </div>
+          <div class="rounded bg-[#303030]">
+            <div id="progressBar" class="h-2 rounded bg-[#EA2831]" style="width: 0%;"></div>
+          </div>
+          <p id="videoTitle" class="text-sm font-normal leading-normal text-[#ABABAB]">Video Title</p>
+        </div>
+        <div id="result" class="p-4 hidden">
+          <div class="flex items-stretch justify-between gap-4 rounded-lg bg-[#212121] p-4 shadow-[0_0_4px_rgba(0,0,0,0.1)]">
+            <div class="flex flex-[2_2_0px] flex-col gap-4">
+              <div class="flex flex-col gap-1">
+                <p id="resultTitle" class="text-base font-bold leading-tight text-[#FFFFFF]">Video Title</p>
+                <p id="resultViews" class="text-sm font-normal leading-normal text-[#ABABAB]">Views</p>
+              </div>
+              <a id="downloadLink" class="flex h-8 w-fit min-w-[84px] max-w-[480px] cursor-pointer flex-row-reverse items-center justify-center overflow-hidden rounded-lg bg-[#292929] px-4 text-sm font-medium leading-normal text-[#FFFFFF]" target="_blank">
+                Download
+              </a>
+            </div>
+            <div id="thumbnail" class="aspect-video w-full flex-1 rounded-lg bg-cover bg-center bg-no-repeat"></div>
+          </div>
+        </div>
+        <div id="error" class="text-center text-red-600 hidden">Error</div>
+        <div class="flex px-4 py-3">
           <button
-            type="submit"
             id="startDownload"
-            class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            class="flex h-12 min-w-[84px] max-w-[480px] flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-[#EA2831] px-5 text-base font-bold leading-normal tracking-[0.015em] text-[#FFFFFF]"
           >
-            Start Download
+            Download
           </button>
         </div>
-      </form>
-
-      <div id="loader" class="loader hidden"></div>
-      <div id="status" class="mt-6 text-center text-lg text-gray-700"></div>
-      <div id="progress" class="mt-4 text-center text-lg text-blue-600"></div>
-      <div id="result" class="mt-4 text-center text-lg text-green-600"></div>
-      <div id="error" class="mt-4 text-center text-lg text-red-600"></div>
-      <div id="metadata" class="mt-4 text-center text-lg text-gray-600"></div>
+        <footer class="container flex flex-col gap-6 px-5 py-10 text-center">
+          <p class="text-base font-normal leading-normal text-[#ABABAB]">© 2022 Youtube Video Downloader</p>
+        </footer>
+      </div>
     </div>
 
     <script>
@@ -111,19 +102,21 @@
       }
 
       const csrftoken = getCookie("csrftoken");
-      const downloadForm = document.getElementById("downloadForm");
-      const loader = document.getElementById("loader");
-      const statusDiv = document.getElementById("status");
-      const progressDiv = document.getElementById("progress");
+      const downloadForm = document.getElementById("startDownload");
+      const progressPercent = document.getElementById("progressPercent");
+      const progressBar = document.getElementById("progressBar");
+      const videoTitle = document.getElementById("videoTitle");
       const resultDiv = document.getElementById("result");
+      const resultTitle = document.getElementById("resultTitle");
+      const resultViews = document.getElementById("resultViews");
+      const downloadLink = document.getElementById("downloadLink");
+      const thumbnail = document.getElementById("thumbnail");
       const errorDiv = document.getElementById("error");
-      const metadataDiv = document.getElementById("metadata");
 
       let taskId = null;
       let socket = null;
 
-      downloadForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
+      downloadForm.addEventListener("click", async () => {
         const url = document.getElementById("url").value;
         const resolution = document.getElementById("resolution").value;
         const includeAudio = document.getElementById("include_audio").checked;
@@ -133,16 +126,13 @@
           return;
         }
 
-        statusDiv.innerText = "Creating download request...";
-        progressDiv.innerText = "";
-        resultDiv.innerText = "";
-        errorDiv.innerText = "";
-        metadataDiv.innerText = "";
-
-        loader.classList.remove("hidden");
+        progressPercent.innerText = "0%";
+        videoTitle.innerText = "Video Title";
+        resultDiv.classList.add("hidden");
+        errorDiv.classList.add("hidden");
 
         try {
-          const response = await fetch("/start_download/", {
+          const response = await fetch("http://localhost:8000/start_download/", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -161,12 +151,10 @@
 
           const data = await response.json();
           taskId = data.task_id;
-          statusDiv.innerText = `Download request created with Task ID: ${taskId}`;
-          loader.classList.add("hidden");
 
           setupWebSocket();
         } catch (error) {
-          loader.classList.add("hidden");
+          errorDiv.classList.remove("hidden");
           errorDiv.innerText = `Error: ${error.message}`;
         }
       });
@@ -177,7 +165,7 @@
         }
 
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-        socket = new WebSocket(`${protocol}://${window.location.host}/ws/download/${taskId}/`);
+        socket = new WebSocket(`http://localhost:8000/ws/download/${taskId}/`);
 
         socket.onmessage = function (event) {
           const data = JSON.parse(event.data);
@@ -185,6 +173,7 @@
         };
 
         socket.onerror = function () {
+          errorDiv.classList.remove("hidden");
           errorDiv.innerText = "WebSocket error occurred.";
         };
 
@@ -195,45 +184,27 @@
 
       function handleWebSocketMessage(data) {
         if (data.stage) {
-          switch (data.stage) {
-            case "downloading_video":
-              statusDiv.innerText = "Downloading video...";
-              break;
-            case "downloading_audio":
-              statusDiv.innerText = "Downloading audio...";
-              break;
-            case "merging_in_progress":
-              statusDiv.innerText = "Merging audio and video...";
-              break;
-            case "upload_in_progress":
-              statusDiv.innerText = "Uploading the file...";
-              break;
-            case "ready_to_serve":
-              statusDiv.innerText = "Download ready!";
-              break;
-            default:
-              statusDiv.innerText = `Status: ${data.stage}`;
+          if (data.stage === "ready_to_serve") {
+            progressPercent.innerText = "100%";
           }
         }
 
         if (data.progress !== undefined) {
-          progressDiv.innerText = `Progress: ${data.progress.toFixed(2)}%`;
+          progressPercent.innerText = `${data.progress.toFixed(2)}%`;
+          progressBar.style.width = `${data.progress}%`;
         }
 
         if (data.download_url) {
-          resultDiv.innerHTML = `<a href="${data.download_url}" target="_blank" class="text-blue-600 underline">Download File</a>`;
+          resultDiv.classList.remove("hidden");
+          resultTitle.innerText = data.metadata.title || "Video Title";
+          resultViews.innerText = `${data.metadata.views || "N/A"} views`;
+          downloadLink.href = data.download_url;
+          thumbnail.style.backgroundImage = `url(${data.metadata.thumbnail || ""})`;
         }
 
         if (data.error_message) {
+          errorDiv.classList.remove("hidden");
           errorDiv.innerText = `Error: ${data.error_message}`;
-        }
-
-        if (data.metadata) {
-          metadataDiv.innerHTML = `
-            <p>Title: ${data.metadata.title || "N/A"}</p>
-            <p>Views: ${data.metadata.views || "N/A"}</p>
-            <img src="${data.metadata.thumbnail || ""}" alt="Thumbnail" class="mt-2 max-w-full h-auto" />
-          `;
         }
       }
     </script>
