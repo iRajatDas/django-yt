@@ -27,7 +27,7 @@ services:
 
   worker:
     build: .
-    command: celery -A youtube_downloader worker --loglevel=info
+    command: celery -A youtube_downloader worker --loglevel=info --concurrency=4
     volumes:
       - .:/app
     depends_on:
@@ -55,6 +55,7 @@ services:
       POSTGRES_PASSWORD: secret
 
   redis:
+    restart: always
     image: redis:latest
 
 volumes:
