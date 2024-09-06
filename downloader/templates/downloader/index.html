@@ -9,7 +9,10 @@
     />
     <title>YouTube Video Downloader</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Download YouTube videos with this simple web app." />
+    <meta
+      name="description"
+      content="Download YouTube videos with this simple web app."
+    />
     <meta name="theme-color" content="#000000" />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <style>
@@ -39,7 +42,9 @@
     >
       <div>
         <div class="flex flex-col gap-2 bg-black p-4 pb-2">
-          <p class="tracking-light text-[28px] font-bold leading-tight text-[#FFFFFF]">
+          <p
+            class="tracking-light text-[28px] font-bold leading-tight text-[#FFFFFF]"
+          >
             YouTube Video Downloader
           </p>
         </div>
@@ -96,7 +101,9 @@
               id="include_audio"
               class="sr-only peer"
             />
-            <span class="me-3 text-sm font-medium text-gray-300">Include Audio</span>
+            <span class="me-3 text-sm font-medium text-gray-300"
+              >Include Audio</span
+            >
             <div
               class="relative w-11 h-6 bg-gray-700 rounded-full peer peer-checked:bg-blue-600"
             ></div>
@@ -105,20 +112,46 @@
 
         <div class="flex flex-col gap-3 p-4">
           <div class="flex justify-between gap-6">
-            <p class="text-base font-medium leading-normal text-[#FFFFFF]">Download Progress</p>
-            <p id="progressPercent" class="text-sm font-normal leading-normal text-[#FFFFFF]">0%</p>
+            <p class="text-base font-medium leading-normal text-[#FFFFFF]">
+              Download Progress
+            </p>
+            <p
+              id="progressPercent"
+              class="text-sm font-normal leading-normal text-[#FFFFFF]"
+            >
+              0%
+            </p>
           </div>
           <div class="rounded bg-[#303030]">
-            <div id="progressBar" class="h-2 rounded bg-[#EA2831]" style="width: 0%"></div>
+            <div
+              id="progressBar"
+              class="h-2 rounded bg-[#EA2831]"
+              style="width: 0%"
+            ></div>
           </div>
-          <p id="status" class="text-sm font-normal leading-normal text-[#ABABAB]"></p>
+          <p
+            id="status"
+            class="text-sm font-normal leading-normal text-[#ABABAB]"
+          ></p>
         </div>
         <div id="result" class="p-4 hidden">
-          <div class="flex items-stretch justify-between gap-4 rounded-lg bg-[#212121] p-4 shadow-[0_0_4px_rgba(0,0,0,0.1)]">
+          <div
+            class="flex items-stretch justify-between gap-4 rounded-lg bg-[#212121] p-4 shadow-[0_0_4px_rgba(0,0,0,0.1)]"
+          >
             <div class="flex flex-[2_2_0px] flex-col gap-4">
               <div class="flex flex-col gap-1">
-                <p id="resultTitle" class="text-base font-bold leading-tight text-[#FFFFFF]">Video Title</p>
-                <p id="resultViews" class="text-sm font-normal leading-normal text-[#ABABAB]">Views</p>
+                <p
+                  id="resultTitle"
+                  class="text-base font-bold leading-tight text-[#FFFFFF]"
+                >
+                  Video Title
+                </p>
+                <p
+                  id="resultViews"
+                  class="text-sm font-normal leading-normal text-[#ABABAB]"
+                >
+                  Views
+                </p>
               </div>
               <a
                 id="downloadLink"
@@ -144,7 +177,9 @@
           </button>
         </div>
         <footer class="container flex flex-col gap-6 px-5 py-10 text-center">
-          <p class="text-base font-normal leading-normal text-[#ABABAB]">© 2022 Youtube Video Downloader</p>
+          <p class="text-base font-normal leading-normal text-[#ABABAB]">
+            © 2022 Youtube Video Downloader
+          </p>
         </footer>
       </div>
     </div>
@@ -218,6 +253,8 @@
       startDownloadBtn.addEventListener("click", handleDownload);
       inputArrow.addEventListener("click", handleDownload);
 
+      let taskId = null;
+      let socket = null;
       function setupWebSocket() {
         if (socket) {
           socket.close();
@@ -269,7 +306,9 @@
           resultTitle.innerText = data.metadata.title || "Video Title";
           resultViews.innerText = `${data.metadata.views || "N/A"} views`;
           downloadLink.href = data.download_url;
-          thumbnail.style.backgroundImage = `url(${data.metadata.thumbnail || ""})`;
+          thumbnail.style.backgroundImage = `url(${
+            data.metadata.thumbnail || ""
+          })`;
         }
 
         if (data.error_message) {
