@@ -163,7 +163,7 @@
               </div>
               <a
                 id="downloadLink"
-                class="flex h-8 w-fit min-w-[84px] max-w-[480px] cursor-pointer flex-row-reverse items-center justify-center overflow-hidden rounded-lg bg-[#292929] px-4 text-sm font-medium leading-normal text-[#FFFFFF]"
+                class="flex h-8 w-fit min-w-[84px] max-w-[480px] cursor-pointer flex-row-reverse items-center justify-center overflow-hidden rounded-lg bg-[#EA2831] px-4 text-sm font-medium leading-normal text-[#FFFFFF]"
                 target="_blank"
               >
                 Download
@@ -176,14 +176,14 @@
           </div>
         </div>
         <div id="error" class="hidden text-center text-red-600">Error</div>
-        <div class="flex px-4 py-3">
+        <!-- <div class="flex px-4 py-3">
           <button
             id="startDownload"
             class="flex h-12 min-w-[84px] max-w-[480px] flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-[#EA2831] px-5 text-base font-bold leading-normal tracking-[0.015em] text-[#FFFFFF]"
           >
             Download
           </button>
-        </div>
+        </div> -->
         <footer class="container flex flex-col gap-6 px-5 py-10 text-center">
           <p class="text-base font-normal leading-normal text-[#ABABAB]">
             © 2022 Youtube Video Downloader
@@ -314,7 +314,9 @@
         if (data.download_url) {
           resultDiv.classList.remove("hidden");
           resultTitle.innerText = data.metadata.title || "Video Title";
-          resultViews.innerText = `${data.metadata.views || "N/A"} views`;
+          resultViews.innerText = `${
+            viewsFormatter(data.metadata.views) || "N/A"
+          } views`;
           downloadLink.href = data.download_url;
           thumbnail.style.backgroundImage = `url(${
             data.metadata.thumbnail || ""
@@ -325,6 +327,14 @@
           errorDiv.classList.remove("hidden");
           errorDiv.innerText = `Error: ${data.error_message}`;
         }
+      }
+
+      function viewsFormatter(views) {
+        if (views < 1e3) return views;
+        if (views < 1e6) return `${(views / 1e3).toFixed(1)}K`;
+        if (views < 1e9) return `${(views / 1e6).toFixed(1)}M`;
+        if (views < 1e12) return `${(views / 1e9).toFixed(1)}B`;
+        return `${(views / 1e9).toFixed(1)}B`;
       }
     </script>
   </body>
