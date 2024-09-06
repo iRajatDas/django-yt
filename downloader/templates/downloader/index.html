@@ -1,18 +1,10 @@
 <html>
   <head>
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
-    <link
-      rel="stylesheet"
-      as="style"
-      onload="this.rel='stylesheet'"
-      href="https://fonts.googleapis.com/css2?display=swap&amp;family=Manrope%3Awght%40400%3B500%3B700%3B800&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
-    />
+    <link rel="stylesheet" as="style" onload="this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Manrope%3Awght%40400%3B500%3B700%3B800&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" />
     <title>YouTube Video Downloader</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="Download YouTube videos with this simple web app."
-    />
+    <meta name="description" content="Download YouTube videos with this simple web app." />
     <meta name="theme-color" content="#000000" />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <style>
@@ -36,161 +28,77 @@
   </head>
 
   <body>
-    <div
-      class="group/design-root dark relative flex size-full min-h-screen flex-col justify-between overflow-x-hidden bg-black"
-      style="font-family: Manrope, 'Noto Sans', sans-serif"
-    >
+    <div class="group/design-root dark relative flex size-full min-h-screen flex-col justify-between overflow-x-hidden bg-black" style="font-family: Manrope, 'Noto Sans', sans-serif">
       <div>
         <div class="flex flex-col gap-2 bg-black p-4 pb-2">
-          <p
-            class="tracking-light text-[28px] font-bold leading-tight text-[#FFFFFF]"
-          >
-            YouTube Video Downloader
-          </p>
+          <p class="tracking-light text-[28px] font-bold leading-tight text-[#FFFFFF]">YouTube Video Downloader</p>
         </div>
-        <h1 class="px-4 pb-1 pt-4 text-sm leading-tight text-white/70">
-          Paste video url below
-        </h1>
+        <h1 class="px-4 pb-1 pt-4 text-sm leading-tight text-white/70">Paste video url below</h1>
         <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
           <label class="flex min-w-40 flex-1 flex-col">
             <div class="flex w-full flex-1 items-stretch rounded-lg">
-              <input
-                id="url"
-                type="url"
-                required
-                placeholder="Search"
-                class="form-input flex h-14 w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border border-r-0 border-[#303030] bg-[#212121] p-[15px] pr-2 text-base font-normal leading-normal text-[#FFFFFF] placeholder:text-[#ABABAB] focus:border-[#303030] focus:outline-0 focus:ring-0"
-                aria-label="YouTube URL"
-              />
-              <div
-                id="inputArrow"
-                class="flex items-center justify-center rounded-r-lg border border-l-0 border-[#303030] bg-[#212121] pr-[15px] text-[#ABABAB] cursor-pointer"
-                data-icon="ArrowRight"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24px"
-                  height="24px"
-                  fill="currentColor"
-                  viewBox="0 0 256 256"
-                >
-                  <path
-                    d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"
-                  ></path>
+              <input id="url" type="url" required placeholder="Search" class="form-input flex h-14 w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border border-r-0 border-[#303030] bg-[#212121] p-[15px] pr-2 text-base font-normal leading-normal text-[#FFFFFF] placeholder:text-[#ABABAB] focus:border-[#303030] focus:outline-0 focus:ring-0" aria-label="YouTube URL" />
+              <div id="inputArrow" class="flex cursor-pointer items-center justify-center rounded-r-lg border border-l-0 border-[#303030] bg-[#212121] pr-[15px] text-[#ABABAB]" data-icon="ArrowRight">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                  <path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"></path>
                 </svg>
               </div>
             </div>
           </label>
         </div>
-        <div class="flex gap-3 overflow-x-hidden px-4 py-3 items-center">
-          <select
-            id="resolution"
-            class="border text-sm rounded-md block p-2.5 bg-[#292929] border-[#303030] placeholder-gray-400 text-white min-w-0 w-44"
-          >
+        <div class="flex items-center gap-3 overflow-x-hidden px-4 py-3">
+          <select id="resolution" class="block w-44 min-w-0 rounded-md border border-[#303030] bg-[#292929] p-2.5 text-sm text-white placeholder-gray-400">
             <option value="720p" selected>720p</option>
             <option value="360p">360p</option>
             <option value="1080p">1080p</option>
           </select>
-          <label
-            class="inline-flex items-center cursor-pointer ml-auto"
-            for="include_audio"
-          >
-            <input
-              type="checkbox"
-              checked
-              id="include_audio"
-              class="sr-only peer"
-            />
-            <span class="me-3 text-sm font-medium text-gray-300"
-              >Include Audio</span
-            >
-            <div
-              class="relative w-11 h-6 bg-gray-700 rounded-full peer peer-checked:bg-blue-600"
-            ></div>
+          <label class="ml-auto inline-flex cursor-pointer items-center" for="include_audio">
+            <input type="checkbox" checked id="include_audio" class="peer sr-only" />
+            <span class="me-3 text-sm font-medium text-gray-300">With Audio</span>
+            <div class="peer relative h-6 w-11 rounded-full bg-[#292929] after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-[#292929] after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full"></div>
           </label>
         </div>
 
         <div class="flex flex-col gap-3 p-4">
           <div class="flex justify-between gap-6">
-            <p class="text-base font-medium leading-normal text-[#FFFFFF]">
-              Download Progress
-            </p>
-            <p
-              id="progressPercent"
-              class="text-sm font-normal leading-normal text-[#FFFFFF]"
-            >
-              0%
-            </p>
+            <p class="text-base font-medium leading-normal text-[#FFFFFF]">Download Progress</p>
+            <p id="progressPercent" class="text-sm font-normal leading-normal text-[#FFFFFF]">0%</p>
           </div>
           <div class="rounded bg-[#303030]">
-            <div
-              id="progressBar"
-              class="h-2 rounded bg-[#EA2831]"
-              style="width: 0%"
-            ></div>
+            <div id="progressBar" class="h-2 rounded bg-[#EA2831]" style="width: 0%"></div>
           </div>
-          <p
-            id="status"
-            class="text-sm font-normal leading-normal text-[#ABABAB]"
-          ></p>
+          <p id="status" class="text-sm font-normal leading-normal text-[#ABABAB]"></p>
         </div>
-        <div id="result" class="p-4 hidden">
-          <div
-            class="flex items-stretch justify-between gap-4 rounded-lg bg-[#212121] p-4 shadow-[0_0_4px_rgba(0,0,0,0.1)]"
-          >
+        <div id="result" class="hidden p-4">
+          <div class="flex items-stretch justify-between gap-4 rounded-lg bg-[#212121] p-4 shadow-[0_0_4px_rgba(0,0,0,0.1)]">
             <div class="flex flex-[2_2_0px] flex-col gap-4">
               <div class="flex flex-col gap-1">
-                <p
-                  id="resultTitle"
-                  class="text-base font-bold leading-tight text-[#FFFFFF]"
-                >
-                  Video Title
-                </p>
-                <p
-                  id="resultViews"
-                  class="text-sm font-normal leading-normal text-[#ABABAB]"
-                >
-                  Views
-                </p>
+                <p id="resultTitle" class="text-base font-bold leading-tight text-[#FFFFFF]">Video Title</p>
+                <p id="resultViews" class="text-sm font-normal leading-normal text-[#ABABAB]">Views</p>
               </div>
-              <a
-                id="downloadLink"
-                class="flex h-8 w-fit min-w-[84px] max-w-[480px] cursor-pointer flex-row-reverse items-center justify-center overflow-hidden rounded-lg bg-[#292929] px-4 text-sm font-medium leading-normal text-[#FFFFFF]"
-                target="_blank"
-              >
-                Download
-              </a>
+              <a id="downloadLink" class="flex h-8 w-fit min-w-[84px] max-w-[480px] cursor-pointer flex-row-reverse items-center justify-center overflow-hidden rounded-lg bg-[#292929] px-4 text-sm font-medium leading-normal text-[#FFFFFF]" target="_blank"> Download </a>
             </div>
-            <div
-              id="thumbnail"
-              class="aspect-video w-full flex-1 rounded-lg bg-cover bg-center bg-no-repeat"
-            ></div>
+            <div id="thumbnail" class="aspect-video w-full flex-1 rounded-lg bg-cover bg-center bg-no-repeat"></div>
           </div>
         </div>
-        <div id="error" class="text-center text-red-600 hidden">Error</div>
+        <div id="error" class="hidden text-center text-red-600">Error</div>
         <div class="flex px-4 py-3">
-          <button
-            id="startDownload"
-            class="flex h-12 min-w-[84px] max-w-[480px] flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-[#EA2831] px-5 text-base font-bold leading-normal tracking-[0.015em] text-[#FFFFFF]"
-          >
-            Download
-          </button>
+          <button id="startDownload" class="flex h-12 min-w-[84px] max-w-[480px] flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-[#EA2831] px-5 text-base font-bold leading-normal tracking-[0.015em] text-[#FFFFFF]">Download</button>
         </div>
         <footer class="container flex flex-col gap-6 px-5 py-10 text-center">
-          <p class="text-base font-normal leading-normal text-[#ABABAB]">
-            © 2022 Youtube Video Downloader
-          </p>
+          <p class="text-base font-normal leading-normal text-[#ABABAB]">© 2022 Youtube Video Downloader</p>
         </footer>
       </div>
     </div>
 
     <script>
+      let socket = null; // Initialize socket
+      let taskId = null; // Initialize task ID
       function toggleLoadingState(isLoading) {
         const downloadBtn = document.getElementById("startDownload");
         const inputArrow = document.getElementById("inputArrow");
 
         if (isLoading) {
-          // Show spinner inside button and input
           downloadBtn.innerHTML = '<div class="loading-spinner"></div>';
           inputArrow.innerHTML = '<div class="loading-spinner"></div>';
           downloadBtn.disabled = true;
@@ -211,6 +119,7 @@
         const progressPercent = document.getElementById("progressPercent");
         const progressBar = document.getElementById("progressBar");
         const errorDiv = document.getElementById("error");
+        const statusText = document.getElementById("status");
 
         if (!url) {
           alert("Please enter a valid YouTube URL.");
@@ -253,8 +162,6 @@
       startDownloadBtn.addEventListener("click", handleDownload);
       inputArrow.addEventListener("click", handleDownload);
 
-      let taskId = null;
-      let socket = null;
       function setupWebSocket() {
         if (socket) {
           socket.close();
@@ -270,6 +177,7 @@
         };
 
         socket.onerror = function () {
+          const errorDiv = document.getElementById("error");
           errorDiv.classList.remove("hidden");
           errorDiv.innerText = "WebSocket error occurred.";
         };
@@ -287,6 +195,7 @@
         const resultViews = document.getElementById("resultViews");
         const downloadLink = document.getElementById("downloadLink");
         const thumbnail = document.getElementById("thumbnail");
+        const statusText = document.getElementById("status");
         const errorDiv = document.getElementById("error");
 
         if (data.stage) {
@@ -306,9 +215,7 @@
           resultTitle.innerText = data.metadata.title || "Video Title";
           resultViews.innerText = `${data.metadata.views || "N/A"} views`;
           downloadLink.href = data.download_url;
-          thumbnail.style.backgroundImage = `url(${
-            data.metadata.thumbnail || ""
-          })`;
+          thumbnail.style.backgroundImage = `url(${data.metadata.thumbnail || ""})`;
         }
 
         if (data.error_message) {
