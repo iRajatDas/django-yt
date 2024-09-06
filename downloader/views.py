@@ -73,7 +73,7 @@ def start_download(request):
         }
 
         # Start the download task with original payload
-        download_video.delay(str(task.id), original_payload)
+        download_video.apply_async(str(task.id), original_payload)
 
         return JsonResponse(
             {
