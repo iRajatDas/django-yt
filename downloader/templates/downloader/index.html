@@ -7,24 +7,29 @@
       onload="this.rel='stylesheet'"
       href="https://fonts.googleapis.com/css2?display=swap&amp;family=Manrope%3Awght%40400%3B500%3B700%3B800&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
     />
-
     <title>YouTube Video Downloader</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="Download YouTube videos with this simple web app."
-    />
-    <meta
-      name="keywords"
-      content="youtube, video, download, downloader, web app"
-    />
-    <meta name="author" content="Real Python" />
-    <meta name="robots" content="index, follow" />
+    <meta name="description" content="Download YouTube videos with this simple web app." />
     <meta name="theme-color" content="#000000" />
-    <meta name="msapplication-TileColor" content="#000000" />
-    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
-
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <style>
+      .loading-spinner {
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top: 2px solid white;
+        border-radius: 50%;
+        width: 18px;
+        height: 18px;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
   </head>
 
   <body>
@@ -34,10 +39,7 @@
     >
       <div>
         <div class="flex flex-col gap-2 bg-black p-4 pb-2">
-          <div class="flex h-12 items-center justify-end"></div>
-          <p
-            class="tracking-light text-[28px] font-bold leading-tight text-[#FFFFFF]"
-          >
+          <p class="tracking-light text-[28px] font-bold leading-tight text-[#FFFFFF]">
             YouTube Video Downloader
           </p>
         </div>
@@ -56,10 +58,9 @@
                 aria-label="YouTube URL"
               />
               <div
-                class="flex items-center justify-center rounded-r-lg border border-l-0 border-[#303030] bg-[#212121] pr-[15px] text-[#ABABAB]"
+                id="inputArrow"
+                class="flex items-center justify-center rounded-r-lg border border-l-0 border-[#303030] bg-[#212121] pr-[15px] text-[#ABABAB] cursor-pointer"
                 data-icon="ArrowRight"
-                data-size="24px"
-                data-weight="regular"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -83,7 +84,6 @@
           >
             <option value="720p" selected>720p</option>
             <option value="360p">360p</option>
-            <option value="720p">720p</option>
             <option value="1080p">1080p</option>
           </select>
           <label
@@ -96,57 +96,29 @@
               id="include_audio"
               class="sr-only peer"
             />
-            <span class="me-3 text-sm font-medium text-gray-300"
-              >Include Audio</span
-            >
+            <span class="me-3 text-sm font-medium text-gray-300">Include Audio</span>
             <div
-              class="relative w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"
+              class="relative w-11 h-6 bg-gray-700 rounded-full peer peer-checked:bg-blue-600"
             ></div>
           </label>
         </div>
 
         <div class="flex flex-col gap-3 p-4">
           <div class="flex justify-between gap-6">
-            <p class="text-base font-medium leading-normal text-[#FFFFFF]">
-              Download Progress
-            </p>
-            <p
-              id="progressPercent"
-              class="text-sm font-normal leading-normal text-[#FFFFFF]"
-            >
-              0%
-            </p>
+            <p class="text-base font-medium leading-normal text-[#FFFFFF]">Download Progress</p>
+            <p id="progressPercent" class="text-sm font-normal leading-normal text-[#FFFFFF]">0%</p>
           </div>
           <div class="rounded bg-[#303030]">
-            <div
-              id="progressBar"
-              class="h-2 rounded bg-[#EA2831]"
-              style="width: 0%"
-            ></div>
+            <div id="progressBar" class="h-2 rounded bg-[#EA2831]" style="width: 0%"></div>
           </div>
-          <p
-            id="status"
-            class="text-sm font-normal leading-normal text-[#ABABAB]"
-          ></p>
+          <p id="status" class="text-sm font-normal leading-normal text-[#ABABAB]"></p>
         </div>
         <div id="result" class="p-4 hidden">
-          <div
-            class="flex items-stretch justify-between gap-4 rounded-lg bg-[#212121] p-4 shadow-[0_0_4px_rgba(0,0,0,0.1)]"
-          >
+          <div class="flex items-stretch justify-between gap-4 rounded-lg bg-[#212121] p-4 shadow-[0_0_4px_rgba(0,0,0,0.1)]">
             <div class="flex flex-[2_2_0px] flex-col gap-4">
               <div class="flex flex-col gap-1">
-                <p
-                  id="resultTitle"
-                  class="text-base font-bold leading-tight text-[#FFFFFF]"
-                >
-                  Video Title
-                </p>
-                <p
-                  id="resultViews"
-                  class="text-sm font-normal leading-normal text-[#ABABAB]"
-                >
-                  Views
-                </p>
+                <p id="resultTitle" class="text-base font-bold leading-tight text-[#FFFFFF]">Video Title</p>
+                <p id="resultViews" class="text-sm font-normal leading-normal text-[#ABABAB]">Views</p>
               </div>
               <a
                 id="downloadLink"
@@ -172,79 +144,79 @@
           </button>
         </div>
         <footer class="container flex flex-col gap-6 px-5 py-10 text-center">
-          <p class="text-base font-normal leading-normal text-[#ABABAB]">
-            © 2022 Youtube Video Downloader
-          </p>
+          <p class="text-base font-normal leading-normal text-[#ABABAB]">© 2022 Youtube Video Downloader</p>
         </footer>
       </div>
     </div>
 
     <script>
-      function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== "") {
-          const cookies = document.cookie.split(";");
-          for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === name + "=") {
-              cookieValue = decodeURIComponent(
-                cookie.substring(name.length + 1)
-              );
-              break;
-            }
-          }
+      function toggleLoadingState(isLoading) {
+        const downloadBtn = document.getElementById("startDownload");
+        const inputArrow = document.getElementById("inputArrow");
+
+        if (isLoading) {
+          // Show spinner inside button and input
+          downloadBtn.innerHTML = '<div class="loading-spinner"></div>';
+          inputArrow.innerHTML = '<div class="loading-spinner"></div>';
+          downloadBtn.disabled = true;
+          inputArrow.style.pointerEvents = "none";
+        } else {
+          downloadBtn.innerHTML = "Download";
+          inputArrow.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                  <path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"></path></svg>`;
+          downloadBtn.disabled = false;
+          inputArrow.style.pointerEvents = "auto";
         }
-        return cookieValue;
       }
-      const csrftoken = getCookie("csrftoken");
-      const downloadForm = document.getElementById("startDownload");
-      const progressPercent = document.getElementById("progressPercent");
-      const progressBar = document.getElementById("progressBar");
-      const videoTitle = document.getElementById("videoTitle");
-      const resultDiv = document.getElementById("result");
-      const resultTitle = document.getElementById("resultTitle");
-      const resultViews = document.getElementById("resultViews");
-      const downloadLink = document.getElementById("downloadLink");
-      const thumbnail = document.getElementById("thumbnail");
-      const errorDiv = document.getElementById("error");
-      const statusText = document.getElementById("status");
-      let taskId = null;
-      let socket = null;
-      downloadForm.addEventListener("click", async () => {
+
+      async function handleDownload() {
         const url = document.getElementById("url").value;
         const resolution = document.getElementById("resolution").value;
         const includeAudio = document.getElementById("include_audio").checked;
+        const progressPercent = document.getElementById("progressPercent");
+        const progressBar = document.getElementById("progressBar");
+        const errorDiv = document.getElementById("error");
+
         if (!url) {
           alert("Please enter a valid YouTube URL.");
           return;
         }
-        progressPercent.innerText = "0%";
-        resultDiv.classList.add("hidden");
-        errorDiv.classList.add("hidden");
+
+        toggleLoadingState(true);
+
         try {
           const response = await fetch("/start_download/", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "X-CSRFToken": csrftoken,
             },
             body: JSON.stringify({
-              url: url,
-              resolution: resolution,
+              url,
+              resolution,
               include_audio: includeAudio,
             }),
           });
+
           if (!response.ok) {
             throw new Error("Failed to create download request.");
           }
+
           const data = await response.json();
           taskId = data.task_id;
           setupWebSocket();
         } catch (error) {
           errorDiv.classList.remove("hidden");
           errorDiv.innerText = `Error: ${error.message}`;
+        } finally {
+          toggleLoadingState(false);
         }
-      });
+      }
+
+      const startDownloadBtn = document.getElementById("startDownload");
+      const inputArrow = document.getElementById("inputArrow");
+
+      startDownloadBtn.addEventListener("click", handleDownload);
+      inputArrow.addEventListener("click", handleDownload);
 
       function setupWebSocket() {
         if (socket) {
@@ -254,20 +226,32 @@
         socket = new WebSocket(
           `${protocol}://${window.location.host}/ws/download/${taskId}/`
         );
+
         socket.onmessage = function (event) {
           const data = JSON.parse(event.data);
           handleWebSocketMessage(data);
         };
+
         socket.onerror = function () {
           errorDiv.classList.remove("hidden");
           errorDiv.innerText = "WebSocket error occurred.";
         };
+
         socket.onclose = function () {
           console.log("WebSocket connection closed.");
         };
       }
 
       function handleWebSocketMessage(data) {
+        const progressPercent = document.getElementById("progressPercent");
+        const progressBar = document.getElementById("progressBar");
+        const resultDiv = document.getElementById("result");
+        const resultTitle = document.getElementById("resultTitle");
+        const resultViews = document.getElementById("resultViews");
+        const downloadLink = document.getElementById("downloadLink");
+        const thumbnail = document.getElementById("thumbnail");
+        const errorDiv = document.getElementById("error");
+
         if (data.stage) {
           statusText.innerText = data.stage;
           if (data.stage === "ready_to_serve") {
@@ -279,15 +263,15 @@
           progressPercent.innerText = `${data.progress.toFixed(2)}%`;
           progressBar.style.width = `${data.progress}%`;
         }
+
         if (data.download_url) {
           resultDiv.classList.remove("hidden");
           resultTitle.innerText = data.metadata.title || "Video Title";
           resultViews.innerText = `${data.metadata.views || "N/A"} views`;
           downloadLink.href = data.download_url;
-          thumbnail.style.backgroundImage = `url(${
-            data.metadata.thumbnail || ""
-          })`;
+          thumbnail.style.backgroundImage = `url(${data.metadata.thumbnail || ""})`;
         }
+
         if (data.error_message) {
           errorDiv.classList.remove("hidden");
           errorDiv.innerText = `Error: ${data.error_message}`;
