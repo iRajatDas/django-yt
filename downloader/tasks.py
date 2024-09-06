@@ -1,6 +1,7 @@
 import os
 import tempfile
 import logging
+import re  # For sanitizing filenames
 from celery import shared_task
 from pytubefix import YouTube
 from django.core.files import File
@@ -15,55 +16,64 @@ import boto3
 from botocore.exceptions import NoCredentialsError
 from django.db import connection
 from contextlib import contextmanager
-import redis
+from boto3.s3.transfer import TransferConfig
 
 logger = logging.getLogger(__name__)
 
 signer = TimestampSigner()
 
-# Initialize Redis connection
-redis_client = redis.StrictRedis(
-    host=os.environ.get("REDIS_HOST", "localhost"),
-    port=os.getenv("REDIS_PORT", 6379),
-    db=0,
-)
 
-# Check if the Redis connection is working
-try:
-    redis_client.ping()
-except redis.exceptions.ConnectionError:
-    logger.error("Redis connection error")
-    raise
+class ProgressPercentage:
+    def __init__(self, filename, task_id, channel_layer, metadata):
+        self._filename = filename
+        self._size = float(os.path.getsize(filename))
+        self._seen_so_far = 0
+        self.task_id = task_id
+        self.channel_layer = channel_layer
+        self.metadata = metadata
+
+    def __call__(self, bytes_amount):
+        self._seen_so_far += bytes_amount
+        percentage = (self._seen_so_far / self._size) * 100
+        notify_progress_update(
+            "upload_in_progress",
+            self.task_id,
+            self.channel_layer,
+            self.metadata,
+            progress=percentage,
+        )
 
 
-@contextmanager
-def advisory_lock(lock_key):
-    """PostgreSQL advisory lock."""
-    with connection.cursor() as cursor:
-        cursor.execute(f"SELECT pg_try_advisory_lock({lock_key});")
-        acquired = cursor.fetchone()[0]
-        try:
-            if acquired:
-                yield True
-            else:
-                yield False
-        finally:
-            if acquired:
-                cursor.execute(f"SELECT pg_advisory_unlock({lock_key});")
+def sanitize_filename(filename):
+    """Sanitize the filename to remove any invalid characters."""
+    return re.sub(r'[\\/*?:"<>|]', "", filename)
 
-@contextmanager
-def redis_lock(lock_name, timeout=60):
-    """Context manager for Redis locking."""
-    lock = redis_client.lock(lock_name, timeout=timeout)
-    acquired = lock.acquire(blocking=False)
-    try:
-        if acquired:
-            yield True
-        else:
-            yield False
-    finally:
-        if acquired:
-            lock.release()
+
+def upload_file_with_progress(
+    file_path, bucket_name, key_name, storage_options, task_id, channel_layer, metadata
+):
+    """
+    Upload a file to S3 with progress tracking.
+    """
+    s3_client = boto3.client(
+        "s3",
+        aws_access_key_id=storage_options["access_key"],
+        aws_secret_access_key=storage_options["secret_key"],
+        endpoint_url=storage_options["endpoint_url"],
+    )
+
+    # Transfer configuration for progress tracking
+    config = TransferConfig(
+        multipart_threshold=1024 * 25, max_concurrency=10, multipart_chunksize=1024 * 25
+    )
+
+    # Initialize the progress tracker
+    progress = ProgressPercentage(file_path, task_id, channel_layer, metadata)
+
+    # Upload the file with the progress tracker
+    s3_client.upload_file(
+        file_path, bucket_name, key_name, Config=config, Callback=progress
+    )
 
 
 def generate_signed_url(filename: str) -> str:
@@ -101,7 +111,36 @@ def generate_s3_signed_url(file_name: str) -> str:
         return None
 
 
-def run_ffmpeg_with_progress(cmd, task, channel_layer):
+def notify_progress_update(
+    stage,
+    task_id,
+    channel_layer,
+    metadata=None,
+    progress=None,
+    download_url=None,
+    error_message=None,
+):
+    """
+    Send real-time progress updates with metadata.
+    """
+    async_to_sync(channel_layer.group_send)(
+        f"task_{task_id}",
+        {
+            "type": "progress.update",
+            "stage": stage,
+            "task_id": str(task_id),
+            "progress": progress,
+            "download_url": download_url,
+            "error_message": error_message,
+            "metadata": metadata,
+        },
+    )
+
+
+def run_ffmpeg_with_progress(cmd, task, channel_layer, metadata):
+    """
+    Run FFmpeg to merge video and audio while sending progress updates.
+    """
     try:
         process = subprocess.Popen(
             cmd,
@@ -125,9 +164,12 @@ def run_ffmpeg_with_progress(cmd, task, channel_layer):
                     progress = (current_time / total_duration) * 100
                     task.progress = progress
                     task.save()
-                    async_to_sync(channel_layer.group_send)(
-                        f"task_{task.id}",
-                        {"type": "progress.update", "progress": task.progress},
+                    notify_progress_update(
+                        "merging_in_progress",
+                        task.id,
+                        channel_layer,
+                        metadata,
+                        progress=progress,
                     )
 
         process.wait()
@@ -138,158 +180,165 @@ def run_ffmpeg_with_progress(cmd, task, channel_layer):
         logger.debug(f"Error running ffmpeg: {str(e)}")
         task.status = "Failed"
         task.save()
-        async_to_sync(channel_layer.group_send)(
-            f"task_{task.id}",
-            {"type": "status.update", "status": task.status, "error": str(e)},
-        )
-        async_to_sync(channel_layer.group_send)(
-            f"task_{task.id}", {"type": "websocket.close"}
+        notify_progress_update(
+            "error", task.id, channel_layer, metadata, error_message=str(e)
         )
         raise
 
 
 @shared_task
-def download_video(task_id):
+def download_video(task_id, original_payload):
+    """
+    Celery task for downloading video and audio from YouTube, merging, and uploading.
+    """
     task = DownloadTask.objects.get(id=task_id)
     channel_layer = get_channel_layer()
-    lock_name = f"download-lock-{task.id}"
 
-    with redis_lock(lock_name) as acquired:
-        if not acquired:
-            logger.debug(f"Task already in progress for {task_id}")
-            return
-
-    def notify_status_update(
-        status, progress=None, download_url=None, error_message=None
-    ):
-        async_to_sync(channel_layer.group_send)(
-            f"task_{task.id}",
-            {
-                "type": "status.update",
-                "status": status,
-                "progress": progress,
-                "download_url": download_url,
-                "error": error_message,
-            },
-        )
+    # Initialize variables for cleanup
+    video_filename = None
+    audio_filename = None
+    output_filename = None
 
     try:
-        with tempfile.NamedTemporaryFile(
-            delete=False, suffix=".mp4"
-        ) as video_file, tempfile.NamedTemporaryFile(
-            delete=False, suffix=".mp3"
-        ) as audio_file, tempfile.NamedTemporaryFile(
-            delete=False, suffix=".mp4"
-        ) as output_file:
+        # --- Fetch video metadata ---
+        yt = YouTube(
+            task.url,
+            use_oauth=True,
+            allow_oauth_cache=True,
+            token_file=os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "tokens.json",
+            ),
+        )
+        video_metadata = {
+            "title": yt.title,
+            "views": yt.views,
+            "channel_name": yt.author,
+            "thumbnail": yt.thumbnail_url,
+            "duration": yt.length,
+            "original_payload": original_payload,
+        }
 
-            video_filename = video_file.name
-            audio_filename = audio_file.name
-            output_video = output_file.name
-
-            yt = YouTube(
-                task.url,
-                use_oauth=True,
-                allow_oauth_cache=True,
-                token_file=os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    "tokens.json",
-                ),
+        # --- Select video quality based on resolution ---
+        resolution = original_payload["resolution"]
+        if resolution == "highest-available":
+            video_stream = (
+                yt.streams.filter(adaptive=True, file_extension="mp4")
+                .order_by("resolution")
+                .desc()
+                .first()
             )
+        elif resolution == "360p":
+            video_stream = yt.streams.filter(
+                progressive=True, file_extension="mp4", res=resolution
+            ).first()
 
-            def on_progress(stream, chunk, bytes_remaining):
-                total_size = stream.filesize
-                bytes_downloaded = total_size - bytes_remaining
-                percentage = (bytes_downloaded / total_size) * 100
-                task.progress = percentage
-                task.save()
-                async_to_sync(channel_layer.group_send)(
-                    f"task_{task.id}",
-                    {"type": "progress.update", "progress": task.progress},
+        else:
+            video_stream = yt.streams.filter(
+                adaptive=True, file_extension="mp4", res=resolution
+            ).first()
+
+        if not video_stream:
+            raise Exception(f"No video stream found for resolution {resolution}")
+
+        # --- Download video ---
+        video_filename = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
+        yt.register_on_progress_callback(
+            lambda stream, chunk, bytes_remaining: notify_progress_update(
+                "downloading_video",
+                task_id,
+                channel_layer,
+                video_metadata,
+                progress=(100 * (stream.filesize - bytes_remaining) / stream.filesize),
+            )
+        )
+        video_stream.download(filename=video_filename)
+
+        # --- Download audio (if required) ---
+        if task.include_audio:
+            audio_stream = yt.streams.get_audio_only()
+            audio_filename = tempfile.NamedTemporaryFile(
+                delete=False, suffix=".mp3"
+            ).name
+            yt.register_on_progress_callback(
+                lambda stream, chunk, bytes_remaining: notify_progress_update(
+                    "downloading_audio",
+                    task_id,
+                    channel_layer,
+                    video_metadata,
+                    progress=(
+                        100 * (stream.filesize - bytes_remaining) / stream.filesize
+                    ),
                 )
+            )
+            audio_stream.download(filename=audio_filename)
 
-            yt.register_on_progress_callback(on_progress)
+            # --- Merge video and audio ---
+            output_filename = tempfile.NamedTemporaryFile(
+                delete=False, suffix=".mp4"
+            ).name
+            merge_cmd = f"ffmpeg -y -i '{video_filename}' -i '{audio_filename}' -c:v copy -map 0:v:0 -map 1:a:0 -shortest '{output_filename}'"
+            run_ffmpeg_with_progress(merge_cmd, task, channel_layer, video_metadata)
+        else:
+            output_filename = video_filename
 
-            if task.resolution == "highest-available":
-                video = (
-                    yt.streams.filter(adaptive=True, file_extension="mp4")
-                    .order_by("resolution")
-                    .desc()
-                    .first()
-                )
-            elif task.resolution == "lowest-available":
-                video = (
-                    yt.streams.filter(adaptive=True, file_extension="mp4")
-                    .order_by("resolution")
-                    .asc()
-                    .first()
-                )
-            else:
-                video = yt.streams.filter(
-                    res=task.resolution, file_extension="mp4", adaptive=True
-                ).first()
+        # --- Generate sanitized filename with resolution ---
+        sanitized_title = sanitize_filename(yt.title)
+        key_name = f"{sanitized_title}_{resolution}.mp4"
 
-            if not video:
-                error_message = f"No video stream found for resolution {task.resolution}. Please try a different resolution."
-                logger.debug(error_message)
-                task.status = "Failed"
-                task.save()
-                notify_status_update("Failed", error_message=error_message)
-                return
+        # --- Upload the file with progress ---
+        bucket_name = settings.CLOUDFLARE_R2_CONFIG_OPTIONS["bucket_name"]
+        storage_options = settings.CLOUDFLARE_R2_CONFIG_OPTIONS
 
-            task.status = "Video download started"
-            task.save()
-            notify_status_update(task.status)
+        upload_file_with_progress(
+            output_filename,
+            bucket_name,
+            key_name,
+            storage_options,
+            task_id,
+            channel_layer,
+            video_metadata,
+        )
 
-            video.download(filename=video_filename)
+        download_url = generate_s3_signed_url(key_name)
+        file_size = os.path.getsize(output_filename)
 
-            if task.include_audio:
-                task.status = "Audio download started"
-                task.save()
-                notify_status_update(task.status)
+        # --- Complete the process ---
+        task.status = "Completed"
+        task.progress = 100.0
+        task.save()
 
-                audio = (
-                    yt.streams.filter(only_audio=True).order_by("abr").desc().first()
-                )
-                audio.download(filename=audio_filename)
+        video_metadata.update(
+            {
+                "download_url": download_url,
+                "download_size": file_size,
+            }
+        )
 
-                task.status = "Merging video and audio"
-                task.save()
-                notify_status_update(task.status)
+        notify_progress_update(
+            "ready_to_serve",
+            task_id,
+            channel_layer,
+            video_metadata,
+            progress=100,
+            download_url=download_url,
+        )
 
-                merge_cmd = f"ffmpeg -y -i '{video_filename}' -i '{audio_filename}' -c:v copy -map 0:v:0 -map 1:a:0 -shortest '{output_video}'"
-                run_ffmpeg_with_progress(merge_cmd, task, channel_layer)
-
-                with open(output_video, "rb") as f:
-                    task.file.save(f"{yt.title}.mp4", File(f))
-
-            else:
-                with open(video_filename, "rb") as f:
-                    task.file.save(f"{yt.title}.mp4", File(f))
-
-            if (
-                settings.STORAGES["default"]["BACKEND"]
-                == "storages.backends.s3boto3.S3Boto3Storage"
-            ):
-                download_url = generate_s3_signed_url(task.file.name)
-            else:
-                download_url = generate_signed_url(task.file.name)
-
-            task.status = "Completed"
-            task.progress = 100.0
-            task.save()
-            notify_status_update("Completed", task.progress, download_url)
     except Exception as e:
         logger.debug(f"Error downloading video: {str(e)}")
         task.status = "Failed"
         task.save()
-        notify_status_update("Failed", error_message=str(e))
-    finally:
-        async_to_sync(channel_layer.group_send)(
-            f"task_{task.id}", {"type": "websocket.close"}
+        notify_progress_update(
+            "error", task_id, channel_layer, video_metadata, error_message=str(e)
         )
+    finally:
+        # Cleanup files if they were created
         try:
-            os.remove(video_filename)
-            os.remove(audio_filename)
-            os.remove(output_video)
+            if video_filename and os.path.exists(video_filename):
+                os.remove(video_filename)
+            if audio_filename and os.path.exists(audio_filename):
+                os.remove(audio_filename)
+            if output_filename and os.path.exists(output_filename):
+                os.remove(output_filename)
         except Exception as cleanup_error:
             logger.debug(f"Cleanup failed: {str(cleanup_error)}")

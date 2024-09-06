@@ -7,7 +7,6 @@ from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.conf import settings
-from django.views import View
 import json
 import os
 import re
@@ -34,11 +33,13 @@ def start_download(request):
         return JsonResponse({"error": "Invalid request method"}, status=405)
 
     try:
+        # Load and validate input JSON
         data = json.loads(request.body)
         url = data.get("url")
         resolution = data.get("resolution", "highest-available")
         include_audio = data.get("include_audio", True)
 
+        # Ensure URL is provided
         if not url:
             return JsonResponse({"error": "URL is required"}, status=400)
 
@@ -50,7 +51,7 @@ def start_download(request):
         except ValidationError:
             return JsonResponse({"error": "Invalid URL"}, status=400)
 
-        # Create the task
+        # Create the task and save initial data
         task = DownloadTask.objects.create(
             url=url,
             resolution=resolution,
@@ -58,14 +59,21 @@ def start_download(request):
             status="Pending",
         )
 
-        # Update the task with callback URL
+        # Generate WebSocket callback URL
         task.callback_url = (
             f"{request.scheme}://{request.get_host()}/ws/download/{task.id}"
         )
         task.save()
 
-        # Start the download process
-        download_video.delay(str(task.id))
+        # Prepare the original payload for traceability
+        original_payload = {
+            "url": url,
+            "resolution": resolution,
+            "include_audio": include_audio,
+        }
+
+        # Start the download task with original payload
+        download_video.delay(str(task.id), original_payload)
 
         return JsonResponse(
             {
@@ -81,7 +89,9 @@ def start_download(request):
         logger.error(f"Error starting download: {e}", exc_info=True)
         return JsonResponse({"error": "Internal server error"}, status=500)
 
+
 def check_status(request, task_id):
+    """Check the status and progress of a specific download task."""
     task = get_object_or_404(DownloadTask, id=task_id)
     return JsonResponse(
         {
@@ -93,14 +103,18 @@ def check_status(request, task_id):
 
 
 def download_file(request, signed_filename):
+    """Serve a file download via signed URL."""
     try:
+        # Decode and verify the signed filename
         signed_filename = urllib.parse.unquote(signed_filename)
         filename = signer.unsign(signed_filename, max_age=86400)
         file_path = os.path.join(settings.MEDIA_ROOT, "downloads", filename)
 
+        # Check if file exists
         if not os.path.exists(file_path):
             raise Http404("File not found")
 
+        # Serve the file for download
         return HttpResponse(
             open(file_path, "rb").read(), content_type="application/octet-stream"
         )
@@ -115,4 +129,5 @@ def download_file(request, signed_filename):
 
 
 def index(request):
+    """Render the index page for the downloader app."""
     return render(request, "downloader/index.html")

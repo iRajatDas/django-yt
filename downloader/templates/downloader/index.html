@@ -3,31 +3,56 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>YouTube Downloader Test</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
-      rel="stylesheet"
-    />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>YouTube Downloader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .hidden {
+        display: none;
+      }
+      .loader {
+        border: 4px solid #f3f3f3;
+        border-radius: 50%;
+        border-top: 4px solid #3498db;
+        width: 40px;
+        height: 40px;
+        animation: spin 2s linear infinite;
+        margin: 0 auto;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
   </head>
   <body class="bg-gray-100 text-gray-900 font-sans antialiased">
     <div class="max-w-lg mx-auto mt-10 p-8 bg-white shadow-lg rounded-lg">
-      <h1 class="text-2xl font-bold mb-6 text-center">YouTube Downloader</h1>
+      <h1 class="text-3xl font-bold mb-6 text-center text-blue-600">YouTube Downloader</h1>
 
-      <div>
-        <h2 class="text-lg font-semibold mb-4">Create Download Request</h2>
-        <div class="mb-4">
+      <form id="downloadForm" class="space-y-6">
+        <div>
+          <label for="url" class="block text-gray-700 font-semibold">YouTube URL</label>
           <input
-            type="text"
+            type="url"
             id="url"
+            required
             placeholder="Enter YouTube URL"
             class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="YouTube URL"
           />
         </div>
-        <div class="mb-4">
-          <label for="resolution" class="block text-gray-700 font-semibold mb-2">Resolution</label>
+
+        <div>
+          <label for="resolution" class="block text-gray-700 font-semibold">Resolution</label>
           <select
             id="resolution"
+            required
             class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Select resolution"
           >
             <option value="highest-available">Highest Available</option>
             <option value="1080p">1080p</option>
@@ -38,29 +63,35 @@
             <option value="144p">144p</option>
           </select>
         </div>
-        <div class="flex items-center mb-6">
+
+        <div class="flex items-center">
           <input
             type="checkbox"
             id="include_audio"
+            class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             checked
-            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            aria-label="Include Audio"
           />
           <label for="include_audio" class="ml-2 block text-gray-700 font-semibold">Include Audio</label>
         </div>
+
         <div class="text-center">
           <button
+            type="submit"
             id="startDownload"
             class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
           >
             Start Download
           </button>
         </div>
-      </div>
+      </form>
 
+      <div id="loader" class="loader hidden"></div>
       <div id="status" class="mt-6 text-center text-lg text-gray-700"></div>
       <div id="progress" class="mt-4 text-center text-lg text-blue-600"></div>
       <div id="result" class="mt-4 text-center text-lg text-green-600"></div>
       <div id="error" class="mt-4 text-center text-lg text-red-600"></div>
+      <div id="metadata" class="mt-4 text-center text-lg text-gray-600"></div>
     </div>
 
     <script>
@@ -71,9 +102,7 @@
           for (let i = 0; i < cookies.length; i++) {
             const cookie = cookies[i].trim();
             if (cookie.substring(0, name.length + 1) === name + "=") {
-              cookieValue = decodeURIComponent(
-                cookie.substring(name.length + 1)
-              );
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
               break;
             }
           }
@@ -82,23 +111,22 @@
       }
 
       const csrftoken = getCookie("csrftoken");
-
-      const urlInput = document.getElementById("url");
-      const resolutionInput = document.getElementById("resolution");
-      const includeAudioInput = document.getElementById("include_audio");
-      const startDownloadButton = document.getElementById("startDownload");
+      const downloadForm = document.getElementById("downloadForm");
+      const loader = document.getElementById("loader");
       const statusDiv = document.getElementById("status");
       const progressDiv = document.getElementById("progress");
       const resultDiv = document.getElementById("result");
       const errorDiv = document.getElementById("error");
+      const metadataDiv = document.getElementById("metadata");
 
       let taskId = null;
       let socket = null;
 
-      startDownloadButton.addEventListener("click", async () => {
-        const url = urlInput.value;
-        const resolution = resolutionInput.value;
-        const includeAudio = includeAudioInput.checked;
+      downloadForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const url = document.getElementById("url").value;
+        const resolution = document.getElementById("resolution").value;
+        const includeAudio = document.getElementById("include_audio").checked;
 
         if (!url) {
           alert("Please enter a valid YouTube URL.");
@@ -109,13 +137,16 @@
         progressDiv.innerText = "";
         resultDiv.innerText = "";
         errorDiv.innerText = "";
+        metadataDiv.innerText = "";
+
+        loader.classList.remove("hidden");
 
         try {
           const response = await fetch("/start_download/", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "X-CSRFToken": csrftoken, // Include the CSRF token in the request
+              "X-CSRFToken": csrftoken,
             },
             body: JSON.stringify({
               url: url,
@@ -131,10 +162,11 @@
           const data = await response.json();
           taskId = data.task_id;
           statusDiv.innerText = `Download request created with Task ID: ${taskId}`;
+          loader.classList.add("hidden");
 
-          // Start listening for WebSocket messages
           setupWebSocket();
         } catch (error) {
+          loader.classList.add("hidden");
           errorDiv.innerText = `Error: ${error.message}`;
         }
       });
@@ -144,26 +176,12 @@
           socket.close();
         }
 
-        // Connect to the WebSocket server
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-        socket = new WebSocket(
-          `${protocol}://${window.location.host}/ws/download/${taskId}/`
-        );
+        socket = new WebSocket(`${protocol}://${window.location.host}/ws/download/${taskId}/`);
 
         socket.onmessage = function (event) {
           const data = JSON.parse(event.data);
-          if (data.status) {
-            statusDiv.innerText = `Status: ${data.status}`;
-          }
-          if (data.progress) {
-            progressDiv.innerText = `Progress: ${data.progress}%`;
-          }
-          if (data.download_url) {
-            resultDiv.innerHTML = `<a href="${data.download_url}" target="_blank" class="text-blue-600 underline">Download File</a>`;
-          }
-          if (data.error) {
-            errorDiv.innerText = `Error: ${data.error}`;
-          }
+          handleWebSocketMessage(data);
         };
 
         socket.onerror = function () {
@@ -173,6 +191,50 @@
         socket.onclose = function () {
           console.log("WebSocket connection closed.");
         };
+      }
+
+      function handleWebSocketMessage(data) {
+        if (data.stage) {
+          switch (data.stage) {
+            case "downloading_video":
+              statusDiv.innerText = "Downloading video...";
+              break;
+            case "downloading_audio":
+              statusDiv.innerText = "Downloading audio...";
+              break;
+            case "merging_in_progress":
+              statusDiv.innerText = "Merging audio and video...";
+              break;
+            case "upload_in_progress":
+              statusDiv.innerText = "Uploading the file...";
+              break;
+            case "ready_to_serve":
+              statusDiv.innerText = "Download ready!";
+              break;
+            default:
+              statusDiv.innerText = `Status: ${data.stage}`;
+          }
+        }
+
+        if (data.progress !== undefined) {
+          progressDiv.innerText = `Progress: ${data.progress.toFixed(2)}%`;
+        }
+
+        if (data.download_url) {
+          resultDiv.innerHTML = `<a href="${data.download_url}" target="_blank" class="text-blue-600 underline">Download File</a>`;
+        }
+
+        if (data.error_message) {
+          errorDiv.innerText = `Error: ${data.error_message}`;
+        }
+
+        if (data.metadata) {
+          metadataDiv.innerHTML = `
+            <p>Title: ${data.metadata.title || "N/A"}</p>
+            <p>Views: ${data.metadata.views || "N/A"}</p>
+            <img src="${data.metadata.thumbnail || ""}" alt="Thumbnail" class="mt-2 max-w-full h-auto" />
+          `;
+        }
       }
     </script>
   </body>
