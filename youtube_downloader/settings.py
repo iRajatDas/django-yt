@@ -6,6 +6,26 @@ try:
 except ImportError:
     config = os.environ.get
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "loggers": {
+        "channels": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+        },
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",  # Or 'DEBUG'
+        },
+    },
+}
+
 # Base Directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 

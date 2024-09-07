@@ -133,16 +133,10 @@ def notify_progress_update(
     download_url=None,
     error_message=None,
 ):
-    """
-    Send real-time progress updates with metadata.
-    """
-
-    status = DownloadTask.objects.get(id=task_id).status
-
     payload = {
         "type": "progress.update",
         "stage": stage,
-        "status": status,
+        "status": DownloadTask.objects.get(id=task_id).status,
         "task_id": str(task_id),
         "progress": progress,
         "download_url": download_url,
@@ -150,13 +144,16 @@ def notify_progress_update(
         "metadata": metadata,
     }
 
-    # --- Debugging ---
-    logger.info(f"Sending progress update: {payload}")
+    logger.info(f"Attempting to send payload: {payload}")
 
-    async_to_sync(channel_layer.group_send)(
-        f"task_{task_id}",
-        payload,
-    )
+    try:
+        async_to_sync(channel_layer.group_send)(
+            f"task_{task_id}",
+            payload,
+        )
+        logger.info(f"Successfully sent payload to group task_{task_id}")
+    except Exception as e:
+        logger.info(f"Error sending payload to group: {e}")
 
 
 def run_ffmpeg_with_progress(cmd, task, channel_layer, metadata):

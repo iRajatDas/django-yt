@@ -22,27 +22,17 @@ class DownloadProgressConsumer(AsyncWebsocketConsumer):
 
     async def progress_update(self, event):
         try:
-            # Log the status update before sending
-            logger.info(
-                f"Status update received for task {self.task_id}: {event.get('status')}"
-            )
-
-            logger.info(f"TASK DATA: {json.dumps(event)}")
-
-            # Send the entire event dictionary as the response to the client
+            logger.info(f"Status update received for task {self.task_id}: {event.get('status')}")
             await self.send(text_data=json.dumps(event))
 
-            # Automatically close WebSocket if task is completed or failed
-            if event["status"] in ["Completed", "Failed"] or event["stage"] in [
-                "error",
-            ]:
-                logger.info(
-                    f"Closing WebSocket for task {self.task_id} as it is {event['status']}"
-                )
+            # Close socket on completion/failure
+            if event["status"] in ["Completed", "Failed"] or event["stage"] in ["error"]:
+                logger.info(f"Closing WebSocket for task {self.task_id} due to completion or error.")
                 await self.close()
         except Exception as e:
             logger.error(f"Error sending status update for task {self.task_id}: {e}")
-            await self.close()
+            await self.close(code=1001)  # Explicitly send a close frame
+
 
     async def websocket_close(self, event):
         try:
