@@ -4,18 +4,6 @@ import logging
 import re  # For sanitizing filenames
 from celery import shared_task
 from pytubefix import YouTube
-from pytubefix.exceptions import (
-    VideoUnavailable,
-    AgeRestrictedError,
-    VideoPrivate,
-    LiveStreamError,
-    MembersOnly,
-    VideoRegionBlocked,
-    UnknownVideoError,
-    RecordingUnavailable,
-    PytubeFixError,
-    RegexMatchError,
-)
 from django.core.files import File
 from .models import DownloadTask
 from channels.layers import get_channel_layer
@@ -26,6 +14,8 @@ import urllib.parse
 import subprocess
 import boto3
 from botocore.exceptions import NoCredentialsError
+from django.db import connection
+from contextlib import contextmanager
 from boto3.s3.transfer import TransferConfig
 
 logger = logging.getLogger(__name__)
@@ -204,11 +194,8 @@ def download_video(self, task_id, original_payload):
     task = DownloadTask.objects.get(id=task_id)
     channel_layer = get_channel_layer()
 
-    # Initialize video_metadata to avoid reference before assignment
-    video_metadata = None
-
     try:
-        # Fetch YouTube object and check availability
+        # Fetch video metadata
         yt = YouTube(
             task.url,
             use_oauth=True,
@@ -218,14 +205,6 @@ def download_video(self, task_id, original_payload):
                 "tokens.json",
             ),
         )
-
-        # Check for availability of the video; this will raise exceptions if any issues are found
-        is_available = yt.check_availability()
-        print("is_available")
-        print(is_available)
-        print("is_available END")
-
-        # If no exceptions are raised, proceed to fetch video metadata
         video_metadata = {
             "title": yt.title,
             "views": yt.views,
@@ -352,49 +331,13 @@ def download_video(self, task_id, original_payload):
                 download_url=download_url,
             )
 
-    # Handle all relevant pytubefix exceptions with personalized error messages
-    except (
-        VideoUnavailable,
-        AgeRestrictedError,
-        VideoPrivate,
-        LiveStreamError,
-        MembersOnly,
-        VideoRegionBlocked,
-        UnknownVideoError,
-        RecordingUnavailable,
-    ) as e:
-        # Mapping each exception to a personalized error message
-        error_messages = {
-            VideoUnavailable: "Video is unavailable.",
-            AgeRestrictedError: "Video is age-restricted.",
-            VideoPrivate: "Video is private.",
-            LiveStreamError: "Video is a live stream.",
-            MembersOnly: "Video is members-only.",
-            VideoRegionBlocked: "Video is blocked in your region.",
-            UnknownVideoError: "An unknown video error occurred.",
-            RecordingUnavailable: "Recording of live stream is unavailable.",
-        }
-
-        error_message = error_messages.get(type(e), "An error occurred.")
-
-        logger.error(f"{error_message}: {str(e)}")
-        task.status = "Failed"
-        task.save()
-
-        # Send personalized error message to the user
-        notify_progress_update(
-            "error", task_id, channel_layer, {}, error_message=error_message
-        )
-
-    # Handle other pytubefix and general errors
-    except (RegexMatchError, PytubeFixError, Exception) as e:
+    except Exception as e:
         logger.error(f"Error downloading video: {str(e)}", exc_info=True)
         task.status = "Failed"
         task.save()
         notify_progress_update(
-            "error", task_id, channel_layer, video_metadata or {}, error_message=str(e)
+            "error", task_id, channel_layer, video_metadata, error_message=str(e)
         )
-
     finally:
         # Automatically clean up temporary files
         if "output_filename" in locals() and os.path.exists(output_filename):
