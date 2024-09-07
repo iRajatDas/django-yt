@@ -212,37 +212,32 @@ def download_video(self, task_id, original_payload):
     """
     task = DownloadTask.objects.get(id=task_id)
     channel_layer = get_channel_layer()
+
     video_metadata = {}
 
     try:
-        # Attempt to initialize YouTube object and fetch metadata
-        try:
-            yt = YouTube(
-                task.url,
-                use_oauth=True,
-                allow_oauth_cache=True,
-                token_file=os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    "tokens.json",
-                ),
-            )
-            # Extract video details, wrap each extraction if necessary
-            video_metadata = {
-                "title": yt.title,
-                "views": yt.views,
-                "channel_name": yt.author,
-                "thumbnail": yt.thumbnail_url,
-                "duration": yt.length,
-                "original_payload": original_payload,
-            }
-        except (KeyError, VideoUnavailable) as e:
-            # Handle unexpected KeyError or direct VideoUnavailable during metadata access
-            raise VideoUnavailable(f"Video unavailable due to error: {e}")
+        # Fetch video metadata
+        yt = YouTube(
+            task.url,
+            use_oauth=True,
+            allow_oauth_cache=True,
+            token_file=os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "tokens.json",
+            ),
+        )
+        video_metadata = {
+            "title": yt.title,
+            "views": yt.views,
+            "channel_name": yt.author,
+            "thumbnail": yt.thumbnail_url,
+            "duration": yt.length,
+            "original_payload": original_payload,
+        }
 
-        # Determine the video stream based on resolution
         resolution = original_payload["resolution"]
-        video_stream = None  # Default to ensure safety check later
 
+        # Determine the video stream
         if resolution == "highest-available":
             video_stream = (
                 yt.streams.filter(adaptive=True, file_extension="mp4")
@@ -262,8 +257,8 @@ def download_video(self, task_id, original_payload):
         if not video_stream:
             raise ValueError(f"No video stream found for resolution {resolution}")
 
-        # Proceed with downloading and merging streams
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as video_file:
+            # Download the video
             yt.register_on_progress_callback(
                 lambda stream, chunk, bytes_remaining: notify_progress_update(
                     "downloading_video",
@@ -314,7 +309,7 @@ def download_video(self, task_id, original_payload):
                 else:
                     output_filename = video_file.name
 
-            # Sanitize title and upload the file
+            # Generate sanitized filename
             sanitized_title = sanitize_filename(yt.title)
             key_name = f"{sanitized_title}_{resolution}.mp4"
 
@@ -332,10 +327,11 @@ def download_video(self, task_id, original_payload):
                 video_metadata,
             )
 
-            # Generate signed URL and update task status
+            # Generate signed URL
             download_url = generate_s3_signed_url(key_name)
             file_size = os.path.getsize(output_filename)
 
+            # Complete the process
             task.status = "Completed"
             task.progress = 100.0
             task.save()
@@ -356,7 +352,7 @@ def download_video(self, task_id, original_payload):
                 download_url=download_url,
             )
 
-    # Handle pytubefix-specific exceptions with personalized messages
+    # Handle all relevant pytubefix exceptions with personalized error messages
     except (
         VideoUnavailable,
         AgeRestrictedError,
@@ -367,6 +363,7 @@ def download_video(self, task_id, original_payload):
         UnknownVideoError,
         RecordingUnavailable,
     ) as e:
+        # Mapping each exception to a personalized error message
         error_messages = {
             VideoUnavailable: "Video is unavailable.",
             AgeRestrictedError: "Video is age-restricted.",
@@ -379,15 +376,17 @@ def download_video(self, task_id, original_payload):
         }
 
         error_message = error_messages.get(type(e), "An error occurred.")
+
         logger.error(f"{error_message}: {str(e)}", exc_info=True)
         task.status = "Failed"
         task.save()
 
+        # Send personalized error message to the user
         notify_progress_update(
             "error", task_id, channel_layer, {}, error_message=error_message
         )
 
-    # Catch general errors to log and handle unexpected exceptions
+    # Handle other pytubefix and general errors
     except (RegexMatchError, PytubeFixError, Exception) as e:
         logger.error(f"Error downloading video: {str(e)}", exc_info=True)
         task.status = "Failed"
@@ -397,6 +396,12 @@ def download_video(self, task_id, original_payload):
         )
 
     finally:
-        # Clean up temporary files safely
-        if "output_filename" in locals() and os.path.exists(output_filename):
-            os.remove(output_filename)
+        # Automatically clean up temporary files
+        for file_var in ["output_filename", "video_file", "audio_file"]:
+            if file_var in locals() and os.path.exists(locals()[file_var]):
+                try:
+                    os.remove(locals()[file_var])
+                except Exception as cleanup_error:
+                    logger.warning(
+                        f"Error cleaning up file {locals()[file_var]}: {cleanup_error}"
+                    )
