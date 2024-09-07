@@ -49,6 +49,13 @@ class DownloadProgressConsumer(AsyncWebsocketConsumer):
 
             # Send the entire event dictionary as the response
             await self.send(text_data=json.dumps(event))
+
+            # Automatically close WebSocket if task is completed or failed
+            if event["status"] in ["Completed", "Failed"]:
+                logger.info(
+                    f"Closing WebSocket for task {self.task_id} as it is {event['status']}"
+                )
+                await self.close()
         except Exception as e:
             logger.error(f"Error sending progress update for task {self.task_id}: {e}")
             await self.close()

@@ -28,8 +28,8 @@ CHANNEL_LAYERS = {
         "CONFIG": {
             "hosts": [
                 (
-                    os.getenv("REDIS_HOST", "redis"),
-                    int(os.getenv("REDIS_PORT", "6379")),
+                    config("REDIS_HOST"),
+                    int(config("REDIS_PORT", "6379")),
                 ),
             ],
         },
@@ -41,16 +41,16 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-CELERY_BROKER_URL = f"redis://{os.getenv('REDIS_HOST', 'redis')}:6379/0"
+CELERY_BROKER_URL = f"redis://{config('REDIS_HOST')}:6379/0"
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 
 # PostgreSQL Configuration
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("POSTGRES_DB"),
-        "USER": config("POSTGRES_USER"),
-        "PASSWORD": config("POSTGRES_PASSWORD"),
+        "NAME": config("POSTGRES_DB", "yt"),
+        "USER": config("POSTGRES_USER", "rajat"),
+        "PASSWORD": config("POSTGRES_PASSWORD", ""),
         "HOST": config("POSTGRES_HOST", "localhost"),
         "PORT": config("POSTGRES_PORT", "5432"),
     }
