@@ -341,19 +341,6 @@ def download_video(task_id, original_payload):
             download_url=download_url,
         )
 
-    # except
-
-    # except VideoUnavailable as e:
-    #     task.status = "Failed"
-    #     task.save()
-    #     notify_progress_update(
-    #         "error",
-    #         task_id,
-    #         channel_layer,
-    #         metadata=None,
-    #         error_message=f"Oops! The video is unavailable.",
-    #     )
-
     except (
         VideoUnavailable,
         AgeRestrictedError,
@@ -363,6 +350,8 @@ def download_video(task_id, original_payload):
         VideoRegionBlocked,
         UnknownVideoError,
         RecordingUnavailable,
+        PytubeFixError,
+        RegexMatchError,
     ) as e:
         error_messages = {
             VideoUnavailable: "Sorry, but this video is simply not available.",
@@ -373,9 +362,12 @@ def download_video(task_id, original_payload):
             VideoRegionBlocked: "Sorry, this video is blocked in your region.",
             UnknownVideoError: "Oops! An unknown error occurred while processing the video.",
             RecordingUnavailable: "Sorry, the recording of this live stream is not available.",
+            PytubeFixError: "An error occurred with the YouTube downloader library.",
+            RegexMatchError: "Failed to extract video information. The video might be unavailable or the URL might be incorrect.",
         }
 
-        error_message = error_messages.get(type(e), "An error occurred.")
+        error_message = error_messages.get(type(e), f"An error occurred: {str(e)}")
+        logger.error(f"Error in download_video task: {error_message}", exc_info=True)
         task.status = "Failed"
         task.save()
         notify_progress_update(
@@ -387,12 +379,19 @@ def download_video(task_id, original_payload):
         )
 
     except Exception as e:
-        logger.debug(f"Error downloading video: {str(e)}")
-        notify_progress_update(
-            "error", task_id, channel_layer, metadata=None, error_message=str(e)
+        error_message = f"An unexpected error occurred: {str(e)}"
+        logger.error(
+            f"Unexpected error in download_video task: {error_message}", exc_info=True
         )
         task.status = "Failed"
         task.save()
+        notify_progress_update(
+            "error",
+            task_id,
+            channel_layer,
+            metadata=None,
+            error_message=error_message,
+        )
     finally:
         # Cleanup files if they were created
         try:
