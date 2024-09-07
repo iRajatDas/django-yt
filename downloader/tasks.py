@@ -26,8 +26,6 @@ import urllib.parse
 import subprocess
 import boto3
 from botocore.exceptions import NoCredentialsError
-from django.db import connection
-from contextlib import contextmanager
 from boto3.s3.transfer import TransferConfig
 
 logger = logging.getLogger(__name__)
@@ -222,7 +220,10 @@ def download_video(self, task_id, original_payload):
         )
 
         # Check for availability of the video; this will raise exceptions if any issues are found
-        yt.check_availability()
+        is_available = yt.check_availability()
+        print("is_available")
+        print(is_available)
+        print("is_available END")
 
         # If no exceptions are raised, proceed to fetch video metadata
         video_metadata = {
