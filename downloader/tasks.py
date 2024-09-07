@@ -246,14 +246,25 @@ def download_video(self, task_id, original_payload):
             ),
         )
 
-        video_metadata = {
-            "title": yt.title or "",
-            "views": yt.views or "",
-            "channel_name": yt.author or "",
-            "thumbnail": yt.thumbnail_url or "",
-            "duration": yt.length or "",
-            "original_payload": original_payload or {},
-        }
+        try:
+            video_metadata = {
+                "title": yt.title or "",
+                "views": yt.views or 0,
+                "channel_name": yt.author or "Unknown",
+                "thumbnail": yt.thumbnail_url or "https://via.placeholder.com/150",
+                "duration": yt.length or 0,
+                "original_payload": original_payload or {},
+            }
+        except KeyError as e:
+            logger.error(f"Error retrieving video metadata: {e}")
+            video_metadata = {
+                "title": "Error",
+                "views": 0,
+                "channel_name": "Error",
+                "thumbnail": "https://via.placeholder.com/150",
+                "duration": 0,
+                "original_payload": original_payload or {},
+            }
 
         # --- Check if video_metadata is available or throw the original exception ---
 
