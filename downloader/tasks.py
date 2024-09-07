@@ -250,7 +250,7 @@ def download_video(self, task_id, original_payload):
             "original_payload": original_payload,
         }
 
-        print(f"Video metadata: {video_metadata}")
+        logger.info(f"Video metadata: {video_metadata}", exc_info=True)
 
     # Handle all relevant pytubefix exceptions with personalized error messages
     except (
@@ -275,8 +275,8 @@ def download_video(self, task_id, original_payload):
         }
 
         error_message = error_messages.get(type(e), "An error occurred.")
-        print(f"Error: {error_message}")
+        logger.info(f"Error: {error_message}", exc_info=True)
 
     # Handle other pytubefix and general errors
     except (RegexMatchError, PytubeFixError, Exception) as e:
-        print(f"Error downloading video: {str(e)}")
+        logger.info(f"Error downloading video: {str(e)}", exc_info=True)
