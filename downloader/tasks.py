@@ -194,6 +194,8 @@ def download_video(self, task_id, original_payload):
     task = DownloadTask.objects.get(id=task_id)
     channel_layer = get_channel_layer()
 
+    video_metadata = {}
+
     try:
         # Fetch video metadata
         yt = YouTube(
