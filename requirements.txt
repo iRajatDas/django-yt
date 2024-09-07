@@ -17,3 +17,5 @@ uvicorn[standard]==0.30.6
 wsproto==1.2.0
 websockets==13.0.1
 django-cors-headers==4.4.0
+colorlog==6.8.2
+django-log-request-id==2.1.0

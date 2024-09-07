@@ -91,7 +91,7 @@ def upload_file_with_progress(
 
 def generate_signed_url(filename: str) -> str:
     """Generate a signed URL for local storage."""
-    logger.debug("Generating signed URL for local storage")
+    logger.info("Generating signed URL for local storage")
     file_name_only = os.path.basename(filename)
     signed_filename = signer.sign(file_name_only)
     signed_filename = urllib.parse.quote(signed_filename)
@@ -120,7 +120,7 @@ def generate_s3_signed_url(file_name: str) -> str:
         )
         return presigned_url
     except NoCredentialsError:
-        logger.debug("Credentials not available for S3.")
+        logger.info("Credentials not available for S3.")
         return None
 
 
@@ -139,18 +139,23 @@ def notify_progress_update(
 
     status = DownloadTask.objects.get(id=task_id).status
 
+    payload = {
+        "type": "progress.update",
+        "stage": stage,
+        "status": status,
+        "task_id": str(task_id),
+        "progress": progress,
+        "download_url": download_url,
+        "error_message": error_message,
+        "metadata": metadata,
+    }
+
+    # --- Debugging ---
+    logger.info(f"Sending progress update: {payload}")
+
     async_to_sync(channel_layer.group_send)(
         f"task_{task_id}",
-        {
-            "type": "progress.update",
-            "stage": stage,
-            "status": status,
-            "task_id": str(task_id),
-            "progress": progress,
-            "download_url": download_url,
-            "error_message": error_message,
-            "metadata": metadata,
-        },
+        payload,
     )
 
 
@@ -194,7 +199,7 @@ def run_ffmpeg_with_progress(cmd, task, channel_layer, metadata):
             raise subprocess.CalledProcessError(process.returncode, cmd)
         return process.returncode
     except Exception as e:
-        logger.debug(f"Error running ffmpeg: {str(e)}")
+        logger.info(f"Error running ffmpeg: {str(e)}")
         task.status = "Failed"
         task.save()
         notify_progress_update(
@@ -208,6 +213,7 @@ def download_video(task_id, original_payload):
     """
     Celery task for downloading video and audio from YouTube, merging, and uploading.
     """
+    logger.info(f"Starting to process video with ID: {task_id}")
     task = DownloadTask.objects.get(id=task_id)
     channel_layer = get_channel_layer()
 
@@ -341,6 +347,19 @@ def download_video(task_id, original_payload):
             download_url=download_url,
         )
 
+    # except
+
+    # except VideoUnavailable as e:
+    #     task.status = "Failed"
+    #     task.save()
+    #     notify_progress_update(
+    #         "error",
+    #         task_id,
+    #         channel_layer,
+    #         metadata=None,
+    #         error_message=f"Oops! The video is unavailable.",
+    #     )
+
     except (
         VideoUnavailable,
         AgeRestrictedError,
@@ -350,8 +369,6 @@ def download_video(task_id, original_payload):
         VideoRegionBlocked,
         UnknownVideoError,
         RecordingUnavailable,
-        PytubeFixError,
-        RegexMatchError,
     ) as e:
         error_messages = {
             VideoUnavailable: "Sorry, but this video is simply not available.",
@@ -362,14 +379,12 @@ def download_video(task_id, original_payload):
             VideoRegionBlocked: "Sorry, this video is blocked in your region.",
             UnknownVideoError: "Oops! An unknown error occurred while processing the video.",
             RecordingUnavailable: "Sorry, the recording of this live stream is not available.",
-            PytubeFixError: "An error occurred with the YouTube downloader library.",
-            RegexMatchError: "Failed to extract video information. The video might be unavailable or the URL might be incorrect.",
         }
 
-        error_message = error_messages.get(type(e), f"An error occurred: {str(e)}")
-        logger.error(f"Error in download_video task: {error_message}", exc_info=True)
+        error_message = error_messages.get(type(e), "An error occurred.")
         task.status = "Failed"
         task.save()
+        logger.info(f"Error downloading video msg: {error_message}")
         notify_progress_update(
             "error",
             task_id,
@@ -379,19 +394,12 @@ def download_video(task_id, original_payload):
         )
 
     except Exception as e:
-        error_message = f"An unexpected error occurred: {str(e)}"
-        logger.error(
-            f"Unexpected error in download_video task: {error_message}", exc_info=True
+        logger.info(f"Error downloading video: {str(e)}")
+        notify_progress_update(
+            "error", task_id, channel_layer, metadata=None, error_message=str(e)
         )
         task.status = "Failed"
         task.save()
-        notify_progress_update(
-            "error",
-            task_id,
-            channel_layer,
-            metadata=None,
-            error_message=error_message,
-        )
     finally:
         # Cleanup files if they were created
         try:
@@ -402,4 +410,4 @@ def download_video(task_id, original_payload):
             if output_filename and os.path.exists(output_filename):
                 os.remove(output_filename)
         except Exception as cleanup_error:
-            logger.debug(f"Cleanup failed: {str(cleanup_error)}")
+            logger.info(f"Cleanup failed: {str(cleanup_error)}")
