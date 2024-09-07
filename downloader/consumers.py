@@ -20,12 +20,14 @@ class DownloadProgressConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard(self.task_group_name, self.channel_name)
         logger.info(f"WebSocket connection closed for task {self.task_id}")
 
-    async def status_update(self, event):
+    async def progress_update(self, event):
         try:
             # Log the status update before sending
             logger.info(
                 f"Status update received for task {self.task_id}: {event.get('status')}"
             )
+
+            logger.info(f"TASK DATA: {json.dumps(event)}")
 
             # Send the entire event dictionary as the response to the client
             await self.send(text_data=json.dumps(event))
@@ -40,30 +42,6 @@ class DownloadProgressConsumer(AsyncWebsocketConsumer):
                 await self.close()
         except Exception as e:
             logger.error(f"Error sending status update for task {self.task_id}: {e}")
-            await self.close()
-
-    async def progress_update(self, event):
-        try:
-            # Log progress update details
-            logger.info(
-                f"Progress update received for task {self.task_id}: {event.get('progress')}%"
-            )
-
-            logger.info(f"Current status: {event.get('status')}")
-
-            # Send the entire event dictionary as the response
-            await self.send(text_data=json.dumps(event))
-
-            # Automatically close WebSocket if task is completed or failed
-            if event["status"] in ["Completed", "Failed"] or event["stage"] in [
-                "error"
-            ]:
-                logger.info(
-                    f"Closing WebSocket for task {self.task_id} as it is {event['stage']}"
-                )
-                await self.close()
-        except Exception as e:
-            logger.error(f"Error sending progress update for task {self.task_id}: {e}")
             await self.close()
 
     async def websocket_close(self, event):
