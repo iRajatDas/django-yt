@@ -207,7 +207,7 @@ def run_ffmpeg_with_progress(cmd, task, channel_layer, metadata):
 
 
 @shared_task(bind=True)
-def download_video(task_id, original_payload):
+def download_video(self, task_id, original_payload):
     """
     Celery task for downloading video and audio from YouTube, merging, and uploading.
     """
@@ -383,9 +383,9 @@ def download_video(task_id, original_payload):
         task.status = "Failed"
         task.save()
         logger.info(f"Error downloading video msg: {error_message}")
-        
+
         # --- Check if web socket is open ---
-        
+
         notify_progress_update(
             "error",
             task_id,
@@ -399,7 +399,7 @@ def download_video(task_id, original_payload):
         notify_progress_update(
             "error", task_id, channel_layer, metadata=None, error_message=str(e)
         )
-        
+
         task.status = "Failed"
         task.save()
     finally:
