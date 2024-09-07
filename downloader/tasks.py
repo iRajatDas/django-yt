@@ -136,24 +136,40 @@ def notify_progress_update(
     Send real-time progress updates with metadata.
     """
 
-    # --- DEBUGGING ---
+    # Construct the message payload
+    message = {
+        "type": "progress.update",
+        "stage": stage,
+        "task_id": str(task_id),
+        "progress": progress,
+        "download_url": download_url,
+        "error_message": error_message,
+        "metadata": metadata or {},  # Avoid passing None as metadata
+    }
+
+    # Log the message before sending
     logger.debug(
-        f"Sending progress update: {stage}, {task_id}, {metadata}, {progress}, {download_url}, {error_message}",
-        exc_info=True,
+        f"Sending WebSocket update for task {task_id}: {message}", exc_info=True
     )
 
-    async_to_sync(channel_layer.group_send)(
-        f"task_{task_id}",
-        {
-            "type": "progress.update",
-            "stage": stage,
-            "task_id": str(task_id),
-            "progress": progress,
-            "download_url": download_url,
-            "error_message": error_message,
-            "metadata": metadata,
-        },
-    )
+    try:
+        # Send the message to the WebSocket group
+        async_to_sync(channel_layer.group_send)(
+            f"task_{task_id}",
+            {
+                "type": "progress.update",  # This type is used by the consumer
+                "message": message,  # Pass the message payload
+            },
+        )
+        logger.debug(
+            f"Message successfully sent to WebSocket group task_{task_id}",
+            exc_info=True,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to send WebSocket message for task {task_id}: {e}", exc_info=True
+        )
 
 
 def run_ffmpeg_with_progress(cmd, task, channel_layer, metadata):
@@ -207,16 +223,12 @@ def run_ffmpeg_with_progress(cmd, task, channel_layer, metadata):
 
 @shared_task(bind=True)
 def download_video(self, task_id, original_payload):
-    """
-    Celery task for downloading video and audio from YouTube, merging, and uploading.
-    """
     task = DownloadTask.objects.get(id=task_id)
     channel_layer = get_channel_layer()
 
     video_metadata = {}
 
     try:
-        # Fetch video metadata
         yt = YouTube(
             task.url,
             use_oauth=True,
@@ -226,6 +238,7 @@ def download_video(self, task_id, original_payload):
                 "tokens.json",
             ),
         )
+        # Fetch video metadata
         video_metadata = {
             "title": yt.title,
             "views": yt.views,
@@ -258,21 +271,19 @@ def download_video(self, task_id, original_payload):
             raise ValueError(f"No video stream found for resolution {resolution}")
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as video_file:
-            # Download the video
             yt.register_on_progress_callback(
                 lambda stream, chunk, bytes_remaining: notify_progress_update(
                     "downloading_video",
                     task_id,
                     channel_layer,
                     video_metadata,
-                    progress=(
-                        100 * (stream.filesize - bytes_remaining) / stream.filesize
-                    ),
+                    progress=100
+                    * (stream.filesize - bytes_remaining)
+                    / stream.filesize,
                 )
             )
             video_stream.download(filename=video_file.name)
 
-            # If 360p (progressive), no need to download audio or merge
             if resolution == "360p":
                 output_filename = video_file.name
             else:
@@ -280,7 +291,6 @@ def download_video(self, task_id, original_payload):
                     with tempfile.NamedTemporaryFile(
                         delete=False, suffix=".mp3"
                     ) as audio_file:
-                        # Download audio
                         audio_stream = yt.streams.get_audio_only()
                         yt.register_on_progress_callback(
                             lambda stream, chunk, bytes_remaining: notify_progress_update(
@@ -288,16 +298,13 @@ def download_video(self, task_id, original_payload):
                                 task_id,
                                 channel_layer,
                                 video_metadata,
-                                progress=(
-                                    100
-                                    * (stream.filesize - bytes_remaining)
-                                    / stream.filesize
-                                ),
+                                progress=100
+                                * (stream.filesize - bytes_remaining)
+                                / stream.filesize,
                             )
                         )
                         audio_stream.download(filename=audio_file.name)
 
-                        # Merge video and audio
                         with tempfile.NamedTemporaryFile(
                             delete=False, suffix=".mp4"
                         ) as output_file:
@@ -309,32 +316,21 @@ def download_video(self, task_id, original_payload):
                 else:
                     output_filename = video_file.name
 
-            # Generate sanitized filename
             sanitized_title = sanitize_filename(yt.title)
             key_name = f"{sanitized_title}_{resolution}.mp4"
 
-            # Upload the file with progress
-            bucket_name = settings.CLOUDFLARE_R2_CONFIG_OPTIONS["bucket_name"]
-            storage_options = settings.CLOUDFLARE_R2_CONFIG_OPTIONS
-
             upload_file_with_progress(
                 output_filename,
-                bucket_name,
+                settings.CLOUDFLARE_R2_CONFIG_OPTIONS["bucket_name"],
                 key_name,
-                storage_options,
+                settings.CLOUDFLARE_R2_CONFIG_OPTIONS,
                 task_id,
                 channel_layer,
                 video_metadata,
             )
 
-            # Generate signed URL
             download_url = generate_s3_signed_url(key_name)
             file_size = os.path.getsize(output_filename)
-
-            # Complete the process
-            task.status = "Completed"
-            task.progress = 100.0
-            task.save()
 
             video_metadata.update(
                 {
@@ -343,6 +339,7 @@ def download_video(self, task_id, original_payload):
                 }
             )
 
+            # Send final success message first
             notify_progress_update(
                 "ready_to_serve",
                 task_id,
@@ -352,7 +349,11 @@ def download_video(self, task_id, original_payload):
                 download_url=download_url,
             )
 
-    # Handle all relevant pytubefix exceptions with personalized error messages
+            # Now set task status to "Completed"
+            task.status = "Completed"
+            task.progress = 100.0
+            task.save()
+
     except (
         VideoUnavailable,
         AgeRestrictedError,
@@ -363,8 +364,7 @@ def download_video(self, task_id, original_payload):
         UnknownVideoError,
         RecordingUnavailable,
     ) as e:
-        # Mapping each exception to a personalized error message
-        error_messages = {
+        error_message = {
             VideoUnavailable: "Video is unavailable.",
             AgeRestrictedError: "Video is age-restricted.",
             VideoPrivate: "Video is private.",
@@ -373,35 +373,26 @@ def download_video(self, task_id, original_payload):
             VideoRegionBlocked: "Video is blocked in your region.",
             UnknownVideoError: "An unknown video error occurred.",
             RecordingUnavailable: "Recording of live stream is unavailable.",
-        }
+        }.get(type(e), "An error occurred.")
 
-        error_message = error_messages.get(type(e), "An error occurred.")
-
-        logger.error(f"{error_message}: {str(e)}", exc_info=True)
-        task.status = "Failed"
-        task.save()
-
-        # Send personalized error message to the user
+        # Send error message before marking the task as "Failed"
         notify_progress_update(
             "error", task_id, channel_layer, {}, error_message=error_message
         )
 
-    # Handle other pytubefix and general errors
-    except (RegexMatchError, PytubeFixError, Exception) as e:
-        logger.error(f"Error downloading video: {str(e)}", exc_info=True)
         task.status = "Failed"
         task.save()
+
+    except (RegexMatchError, PytubeFixError, Exception) as e:
+        logger.error(f"Error downloading video: {str(e)}", exc_info=True)
         notify_progress_update(
             "error", task_id, channel_layer, video_metadata or {}, error_message=str(e)
         )
+        task.status = "Failed"
+        task.save()
 
     finally:
-        # Automatically clean up temporary files
+        # Clean up temporary files
         for file_var in ["output_filename", "video_file", "audio_file"]:
             if file_var in locals() and os.path.exists(locals()[file_var]):
-                try:
-                    os.remove(locals()[file_var])
-                except Exception as cleanup_error:
-                    logger.warning(
-                        f"Error cleaning up file {locals()[file_var]}: {cleanup_error}"
-                    )
+                os.remove(locals()[file_var])
