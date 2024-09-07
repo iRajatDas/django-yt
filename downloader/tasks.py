@@ -241,15 +241,49 @@ def download_video(self, task_id, original_payload):
         ),
     )
     try:
-        # Fetch video metadata
-        video_metadata = {
-            "title": yt.title,
-            "views": yt.views,
-            "channel_name": yt.author,
-            "thumbnail": yt.thumbnail_url,
-            "duration": yt.length,
-            "original_payload": original_payload,
-        }
+        try:
+            # Fetch video metadata
+            video_metadata = {
+                "title": yt.title,
+                "views": yt.views,
+                "channel_name": yt.author,
+                "thumbnail": yt.thumbnail_url,
+                "duration": yt.length,
+                "original_payload": original_payload,
+            }
+        except (
+            VideoUnavailable,
+            AgeRestrictedError,
+            VideoPrivate,
+            LiveStreamError,
+            MembersOnly,
+            VideoRegionBlocked,
+            UnknownVideoError,
+            RecordingUnavailable,
+        ) as e:
+            # Mapping each exception to a personalized error message
+            error_messages = {
+                VideoUnavailable: "Video is unavailable.",
+                AgeRestrictedError: "Video is age-restricted.",
+                VideoPrivate: "Video is private.",
+                LiveStreamError: "Video is a live stream.",
+                MembersOnly: "Video is members-only.",
+                VideoRegionBlocked: "Video is blocked in your region.",
+                UnknownVideoError: "An unknown video error occurred.",
+                RecordingUnavailable: "Recording of live stream is unavailable.",
+            }
+
+            error_message = error_messages.get(type(e), "An error occurred.")
+
+            logger.error(f"{error_message}: {str(e)}", exc_info=True)
+            task.status = "Failed"
+            task.save()
+
+            # Send personalized error message to the user
+            notify_progress_update(
+                "error", task_id, channel_layer, {}, error_message=error_message
+            )
+
     # Handle all relevant pytubefix exceptions with personalized error messages
     except (
         VideoUnavailable,
