@@ -6,32 +6,18 @@ try:
 except ImportError:
     config = os.environ.get
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-        },
-    },
-    "loggers": {
-        "channels": {
-            "handlers": ["console"],
-            "level": "DEBUG",
-        },
-        "django": {
-            "handlers": ["console"],
-            "level": "INFO",  # Or 'DEBUG'
-        },
-    },
-}
+import logging
+
+logger = logging.getLogger("django")
+logger.info(f"REDIS_HOST: {config('REDIS_HOST')}")
+logger.info(f"REDIS_PORT: {config('REDIS_PORT')}")
 
 # Base Directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Debug and Security Settings
+# INFO and Security Settings
 SECRET_KEY = config("SECRET_KEY", "your-default-secret-key")
-DEBUG = config("DEBUG", "True") == "True"
+INFO = config("INFO", "True") == "True"
 ALLOWED_HOSTS = ["*"]
 DOMAIN = "http://localhost:8000"
 
@@ -97,6 +83,56 @@ STORAGES = {
 STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
+# Logging Configuration
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {"format": "{levelname} {asctime} {module} {message}", "style": "{"},
+        "simple": {"format": "{levelname} {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+        "file": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": os.path.join(BASE_DIR, "INFO.log"),
+            "formatter": "verbose",
+        },
+        "error_file": {
+            "level": "ERROR",
+            "class": "logging.FileHandler",
+            "filename": os.path.join(BASE_DIR, "error.log"),
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "file", "error_file"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "downloader": {
+            "handlers": ["console", "file", "error_file"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "celery": {
+            "handlers": ["console", "file", "error_file"],
+            "level": "INFO",
+            "propagate": True,
+        },
+    },
+    "root": {
+        "handlers": ["console", "file", "error_file"],
+        "level": "INFO",
+    },
+}
+
 # Application Definition
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -112,10 +148,10 @@ INSTALLED_APPS = [
     "storages",
 ]
 
-if DEBUG is True:
+if INFO is True:
     INSTALLED_APPS += ("corsheaders",)
 
-CORS_ORIGIN_ALLOW_ALL = DEBUG
+CORS_ORIGIN_ALLOW_ALL = INFO
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -137,7 +173,7 @@ TEMPLATES = [
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
-                "django.template.context_processors.debug",
+                "django.template.context_processors.INFO",
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
