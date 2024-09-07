@@ -322,7 +322,8 @@
           if (data.stage === "error") {
             resetForm();
             errorDiv.classList.remove("hidden");
-            errorDiv.innerText = `Something went wrong. Please try again.`;
+            errorDiv.innerText =
+              data.error_message ?? `Something went wrong. Please try again.`;
           }
         }
 
