@@ -17,6 +17,7 @@ from botocore.exceptions import NoCredentialsError
 from django.db import connection
 from contextlib import contextmanager
 from boto3.s3.transfer import TransferConfig
+from time import sleep
 
 from pytubefix.exceptions import (
     VideoUnavailable,
@@ -382,6 +383,9 @@ def download_video(task_id, original_payload):
         task.status = "Failed"
         task.save()
         logger.info(f"Error downloading video msg: {error_message}")
+
+        # --- Check if web socket is open ---
+
         notify_progress_update(
             "error",
             task_id,
@@ -392,9 +396,13 @@ def download_video(task_id, original_payload):
 
     except Exception as e:
         logger.info(f"Error downloading video: {str(e)}")
+        sleep(2)
         notify_progress_update(
             "error", task_id, channel_layer, metadata=None, error_message=str(e)
         )
+
+        sleep(10)
+
         task.status = "Failed"
         task.save()
     finally:
