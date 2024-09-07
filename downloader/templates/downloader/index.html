@@ -202,6 +202,9 @@
       let taskId = null; // Initialize task ID
       const startDownloadBtn = document.getElementById("startDownload");
       const inputArrow = document.getElementById("inputArrow");
+      const inputField = document.getElementById("url");
+      const errorDiv = document.getElementById("error");
+
       function toggleLoadingState(isLoading) {
         if (isLoading) {
           startDownloadBtn.innerHTML = '<div class="loading-spinner"></div>';
@@ -218,12 +221,12 @@
       }
 
       async function handleDownload() {
-        const url = document.getElementById("url").value;
+        const url = inputField.value;
         const resolution = document.getElementById("resolution").value;
         const includeAudio = document.getElementById("include_audio").checked;
         const progressPercent = document.getElementById("progressPercent");
         const progressBar = document.getElementById("progressBar");
-        const errorDiv = document.getElementById("error");
+
         const statusText = document.getElementById("status");
         const progressContainer = document.getElementById("progressContainer");
 
@@ -283,7 +286,6 @@
         };
 
         socket.onerror = function () {
-          const errorDiv = document.getElementById("error");
           errorDiv.classList.remove("hidden");
           errorDiv.innerText = "WebSocket error occurred.";
         };
@@ -302,7 +304,6 @@
         const downloadLink = document.getElementById("downloadLink");
         const thumbnail = document.getElementById("thumbnail");
         const statusText = document.getElementById("status");
-        const errorDiv = document.getElementById("error");
         const progressContainer = document.getElementById("progressContainer");
         const startDownloadBtn = document.getElementById("startDownload");
 
@@ -313,13 +314,15 @@
           statusText.innerText = data.stage;
           if (data.stage === "ready_to_serve") {
             progressPercent.innerText = "100%";
-
             // Update button text and reset the form
             startDownloadBtn.innerHTML = "Download another video";
-            startDownloadBtn.classList.remove("hidden");
-            inputArrow.style.pointerEvents = "auto";
-            startDownloadBtn.disabled = false;
             resetForm();
+          }
+
+          if (data.stage === "error") {
+            resetForm();
+            errorDiv.classList.remove("hidden");
+            errorDiv.innerText = `Something went wrong. Please try again.`;
           }
         }
 
@@ -340,16 +343,20 @@
           })`;
         }
 
-        if (data.error_message) {
-          errorDiv.classList.remove("hidden");
-          errorDiv.innerText = `Error: ${data.error_message}`;
-        }
+        // if (data.error_message) {
+        //   errorDiv.classList.remove("hidden");
+        //   errorDiv.innerText = `Error: ${data.error_message}`;
+        // }
       }
 
       function resetForm() {
         // Hide progress container and reset the form fields
         const progressContainer = document.getElementById("progressContainer");
         progressContainer.classList.add("hidden");
+
+        startDownloadBtn.classList.remove("hidden");
+        inputArrow.style.pointerEvents = "auto";
+        startDownloadBtn.disabled = false;
 
         // Reset form fields
         document.getElementById("url").value = "";
