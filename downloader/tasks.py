@@ -238,15 +238,57 @@ def download_video(self, task_id, original_payload):
                 "tokens.json",
             ),
         )
-        # Fetch video metadata
-        video_metadata = {
-            "title": yt.title,
-            "views": yt.views,
-            "channel_name": yt.author,
-            "thumbnail": yt.thumbnail_url,
-            "duration": yt.length,
-            "original_payload": original_payload,
-        }
+
+        try:
+            # Fetch video metadata
+            video_metadata = {
+                "title": yt.title,
+                "views": yt.views,
+                "channel_name": yt.author,
+                "thumbnail": yt.thumbnail_url,
+                "duration": yt.length,
+                "original_payload": original_payload,
+            }
+        except (
+            VideoUnavailable,
+            AgeRestrictedError,
+            VideoPrivate,
+            LiveStreamError,
+            MembersOnly,
+            VideoRegionBlocked,
+            UnknownVideoError,
+            RecordingUnavailable,
+        ) as e:
+            error_message = {
+                VideoUnavailable: "Video is unavailable.",
+                AgeRestrictedError: "Video is age-restricted.",
+                VideoPrivate: "Video is private.",
+                LiveStreamError: "Video is a live stream.",
+                MembersOnly: "Video is members-only.",
+                VideoRegionBlocked: "Video is blocked in your region.",
+                UnknownVideoError: "An unknown video error occurred.",
+                RecordingUnavailable: "Recording of live stream is unavailable.",
+            }.get(type(e), "An error occurred.")
+
+            # Send error message before marking the task as "Failed"
+            notify_progress_update(
+                "error", task_id, channel_layer, {}, error_message=error_message
+            )
+
+            task.status = "Failed"
+            task.save()
+
+        except (RegexMatchError, PytubeFixError, Exception) as e:
+            logger.error(f"Error downloading video: {str(e)}", exc_info=True)
+            notify_progress_update(
+                "error",
+                task_id,
+                channel_layer,
+                video_metadata or {},
+                error_message=str(e),
+            )
+            task.status = "Failed"
+            task.save()
 
         resolution = original_payload["resolution"]
 
