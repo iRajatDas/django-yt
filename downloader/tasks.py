@@ -416,16 +416,19 @@ def download_video(self, task_id, original_payload):
         }
         logger.debug(f"video_metadata_mod: {video_metadata}")
 
-        notify_progress_update(
-            "error",
-            task_id,
-            channel_layer,
-            metadata=video_metadata or {},
-            error_message=error_message,
-        )
-        
+        try:
+            notify_progress_update(
+                "error",
+                task_id,
+                channel_layer,
+                metadata={"title": "Unknown", "views": 0},
+                error_message=error_message,
+            )
+        except Exception as e:
+            logger.debug(f"Failed to send WebSocket update: {e}", exc_info=True)
+
         task.status = "Failed"
         task.save()
 
     except Exception as e:
-        logger.info(f"Unhandled error: {str(e)}", exc_info=True)
+        logger.debug(f"Unhandled error: {str(e)}", exc_info=True)
