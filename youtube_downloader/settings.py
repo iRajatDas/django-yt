@@ -15,9 +15,9 @@ logger.info(f"REDIS_PORT: {config('REDIS_PORT')}")
 # Base Directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# INFO and Security Settings
+# Debug and Security Settings
 SECRET_KEY = config("SECRET_KEY", "your-default-secret-key")
-INFO = config("INFO", "True") == "True"
+DEBUG = config("DEBUG", "True") == "True"
 ALLOWED_HOSTS = ["*"]
 DOMAIN = "http://localhost:8000"
 
@@ -148,10 +148,10 @@ INSTALLED_APPS = [
     "storages",
 ]
 
-if INFO is True:
+if DEBUG is True:
     INSTALLED_APPS += ("corsheaders",)
 
-CORS_ORIGIN_ALLOW_ALL = INFO
+CORS_ORIGIN_ALLOW_ALL = DEBUG
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -173,7 +173,7 @@ TEMPLATES = [
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
-                "django.template.context_processors.INFO",
+                "django.template.context_processors.debug",
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
