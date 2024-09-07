@@ -4,6 +4,18 @@ import logging
 import re  # For sanitizing filenames
 from celery import shared_task
 from pytubefix import YouTube
+from pytubefix.exceptions import (
+    VideoUnavailable,
+    AgeRestrictedError,
+    VideoPrivate,
+    LiveStreamError,
+    MembersOnly,
+    VideoRegionBlocked,
+    UnknownVideoError,
+    RecordingUnavailable,
+    PytubeFixError,
+    RegexMatchError,
+)
 from django.core.files import File
 from .models import DownloadTask
 from channels.layers import get_channel_layer
@@ -123,6 +135,13 @@ def notify_progress_update(
     """
     Send real-time progress updates with metadata.
     """
+
+    # --- DEBUGGING ---
+    logger.debug(
+        f"Sending progress update: {stage}, {task_id}, {metadata}, {progress}, {download_url}, {error_message}",
+        exc_info=True,
+    )
+
     async_to_sync(channel_layer.group_send)(
         f"task_{task_id}",
         {
@@ -333,13 +352,49 @@ def download_video(self, task_id, original_payload):
                 download_url=download_url,
             )
 
-    except Exception as e:
+    # Handle all relevant pytubefix exceptions with personalized error messages
+    except (
+        VideoUnavailable,
+        AgeRestrictedError,
+        VideoPrivate,
+        LiveStreamError,
+        MembersOnly,
+        VideoRegionBlocked,
+        UnknownVideoError,
+        RecordingUnavailable,
+    ) as e:
+        # Mapping each exception to a personalized error message
+        error_messages = {
+            VideoUnavailable: "Video is unavailable.",
+            AgeRestrictedError: "Video is age-restricted.",
+            VideoPrivate: "Video is private.",
+            LiveStreamError: "Video is a live stream.",
+            MembersOnly: "Video is members-only.",
+            VideoRegionBlocked: "Video is blocked in your region.",
+            UnknownVideoError: "An unknown video error occurred.",
+            RecordingUnavailable: "Recording of live stream is unavailable.",
+        }
+
+        error_message = error_messages.get(type(e), "An error occurred.")
+
+        logger.error(f"{error_message}: {str(e)}", exc_info=True)
+        task.status = "Failed"
+        task.save()
+
+        # Send personalized error message to the user
+        notify_progress_update(
+            "error", task_id, channel_layer, {}, error_message=error_message
+        )
+
+    # Handle other pytubefix and general errors
+    except (RegexMatchError, PytubeFixError, Exception) as e:
         logger.error(f"Error downloading video: {str(e)}", exc_info=True)
         task.status = "Failed"
         task.save()
         notify_progress_update(
-            "error", task_id, channel_layer, video_metadata, error_message=str(e)
+            "error", task_id, channel_layer, video_metadata or {}, error_message=str(e)
         )
+
     finally:
         # Automatically clean up temporary files
         if "output_filename" in locals() and os.path.exists(output_filename):
