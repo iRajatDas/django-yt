@@ -148,7 +148,9 @@ def notify_progress_update(
     }
 
     # Log the message before sending
-    logger.debug(f"Sending WebSocket update for task {task_id}: {message}", exc_info=True)
+    logger.debug(
+        f"Sending WebSocket update for task {task_id}: {message}", exc_info=True
+    )
 
     try:
         # Send the message to the WebSocket group
@@ -159,10 +161,15 @@ def notify_progress_update(
                 "message": message,  # Pass the message payload
             },
         )
-        logger.debug(f"Message successfully sent to WebSocket group task_{task_id}", exc_info=True)
+        logger.debug(
+            f"Message successfully sent to WebSocket group task_{task_id}",
+            exc_info=True,
+        )
 
     except Exception as e:
-        logger.error(f"Failed to send WebSocket message for task {task_id}: {e}", exc_info=True)
+        logger.error(
+            f"Failed to send WebSocket message for task {task_id}: {e}", exc_info=True
+        )
 
 
 def run_ffmpeg_with_progress(cmd, task, channel_layer, metadata):
@@ -224,17 +231,17 @@ def download_video(self, task_id, original_payload):
 
     video_metadata = {}
 
+    yt = YouTube(
+        task.url,
+        use_oauth=True,
+        allow_oauth_cache=True,
+        token_file=os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "tokens.json",
+        ),
+    )
     try:
         # Fetch video metadata
-        yt = YouTube(
-            task.url,
-            use_oauth=True,
-            allow_oauth_cache=True,
-            token_file=os.path.join(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                "tokens.json",
-            ),
-        )
         video_metadata = {
             "title": yt.title,
             "views": yt.views,
@@ -243,7 +250,50 @@ def download_video(self, task_id, original_payload):
             "duration": yt.length,
             "original_payload": original_payload,
         }
+    # Handle all relevant pytubefix exceptions with personalized error messages
+    except (
+        VideoUnavailable,
+        AgeRestrictedError,
+        VideoPrivate,
+        LiveStreamError,
+        MembersOnly,
+        VideoRegionBlocked,
+        UnknownVideoError,
+        RecordingUnavailable,
+    ) as e:
+        # Mapping each exception to a personalized error message
+        error_messages = {
+            VideoUnavailable: "Video is unavailable.",
+            AgeRestrictedError: "Video is age-restricted.",
+            VideoPrivate: "Video is private.",
+            LiveStreamError: "Video is a live stream.",
+            MembersOnly: "Video is members-only.",
+            VideoRegionBlocked: "Video is blocked in your region.",
+            UnknownVideoError: "An unknown video error occurred.",
+            RecordingUnavailable: "Recording of live stream is unavailable.",
+        }
 
+        error_message = error_messages.get(type(e), "An error occurred.")
+
+        logger.error(f"{error_message}: {str(e)}", exc_info=True)
+        task.status = "Failed"
+        task.save()
+
+        # Send personalized error message to the user
+        notify_progress_update(
+            "error", task_id, channel_layer, {}, error_message=error_message
+        )
+
+    # Handle other pytubefix and general errors
+    except (RegexMatchError, PytubeFixError, Exception) as e:
+        logger.error(f"Error downloading video: {str(e)}", exc_info=True)
+        task.status = "Failed"
+        task.save()
+        notify_progress_update(
+            "error", task_id, channel_layer, video_metadata or {}, error_message=str(e)
+        )
+
+    else:
         resolution = original_payload["resolution"]
 
         # Determine the video stream
@@ -360,49 +410,6 @@ def download_video(self, task_id, original_payload):
                 progress=100,
                 download_url=download_url,
             )
-
-    # Handle all relevant pytubefix exceptions with personalized error messages
-    except (
-        VideoUnavailable,
-        AgeRestrictedError,
-        VideoPrivate,
-        LiveStreamError,
-        MembersOnly,
-        VideoRegionBlocked,
-        UnknownVideoError,
-        RecordingUnavailable,
-    ) as e:
-        # Mapping each exception to a personalized error message
-        error_messages = {
-            VideoUnavailable: "Video is unavailable.",
-            AgeRestrictedError: "Video is age-restricted.",
-            VideoPrivate: "Video is private.",
-            LiveStreamError: "Video is a live stream.",
-            MembersOnly: "Video is members-only.",
-            VideoRegionBlocked: "Video is blocked in your region.",
-            UnknownVideoError: "An unknown video error occurred.",
-            RecordingUnavailable: "Recording of live stream is unavailable.",
-        }
-
-        error_message = error_messages.get(type(e), "An error occurred.")
-
-        logger.error(f"{error_message}: {str(e)}", exc_info=True)
-        task.status = "Failed"
-        task.save()
-
-        # Send personalized error message to the user
-        notify_progress_update(
-            "error", task_id, channel_layer, {}, error_message=error_message
-        )
-
-    # Handle other pytubefix and general errors
-    except (RegexMatchError, PytubeFixError, Exception) as e:
-        logger.error(f"Error downloading video: {str(e)}", exc_info=True)
-        task.status = "Failed"
-        task.save()
-        notify_progress_update(
-            "error", task_id, channel_layer, video_metadata or {}, error_message=str(e)
-        )
 
     finally:
         # Automatically clean up temporary files
