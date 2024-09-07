@@ -220,112 +220,11 @@ def download_video(self, task_id, original_payload):
                 "tokens.json",
             ),
         )
-        yt.check_availability()  # Check if the video is available
 
-        # Handle specific errors with early returns
-        try:
-            yt.title  # Trigger title fetching
-        except VideoUnavailable as e:
-            logger.error(f"Video is unavailable: {str(e)}")
-            task.status = "Failed"
-            task.save()
-            notify_progress_update(
-                "error",
-                task_id,
-                channel_layer,
-                {},
-                error_message="Video is unavailable.",
-            )
-            return  # Early return
+        # Check for availability of the video; this will raise exceptions if any issues are found
+        yt.check_availability()
 
-        except AgeRestrictedError as e:
-            logger.error(f"Video is age-restricted: {str(e)}")
-            task.status = "Failed"
-            task.save()
-            notify_progress_update(
-                "error",
-                task_id,
-                channel_layer,
-                {},
-                error_message="Video is age-restricted.",
-            )
-            return  # Early return
-
-        except VideoPrivate as e:
-            logger.error(f"Video is private: {str(e)}")
-            task.status = "Failed"
-            task.save()
-            notify_progress_update(
-                "error", task_id, channel_layer, {}, error_message="Video is private."
-            )
-            return  # Early return
-
-        except LiveStreamError as e:
-            logger.error(f"Video is a live stream: {str(e)}")
-            task.status = "Failed"
-            task.save()
-            notify_progress_update(
-                "error",
-                task_id,
-                channel_layer,
-                {},
-                error_message="Video is a live stream.",
-            )
-            return  # Early return
-
-        except MembersOnly as e:
-            logger.error(f"Video is members-only: {str(e)}")
-            task.status = "Failed"
-            task.save()
-            notify_progress_update(
-                "error",
-                task_id,
-                channel_layer,
-                {},
-                error_message="Video is members-only.",
-            )
-            return  # Early return
-
-        except VideoRegionBlocked as e:
-            logger.error(f"Video is blocked in your region: {str(e)}")
-            task.status = "Failed"
-            task.save()
-            notify_progress_update(
-                "error",
-                task_id,
-                channel_layer,
-                {},
-                error_message="Video is blocked in your region.",
-            )
-            return  # Early return
-
-        except UnknownVideoError as e:
-            logger.error(f"Unknown video error: {str(e)}")
-            task.status = "Failed"
-            task.save()
-            notify_progress_update(
-                "error",
-                task_id,
-                channel_layer,
-                {},
-                error_message="An unknown video error occurred.",
-            )
-            return  # Early return
-
-        except RecordingUnavailable as e:
-            logger.error(f"Recording of live stream is unavailable: {str(e)}")
-            task.status = "Failed"
-            task.save()
-            notify_progress_update(
-                "error",
-                task_id,
-                channel_layer,
-                {},
-                error_message="Recording of live stream is unavailable.",
-            )
-            return  # Early return
-
-        # If no exceptions, proceed to fetch video metadata
+        # If no exceptions are raised, proceed to fetch video metadata
         video_metadata = {
             "title": yt.title,
             "views": yt.views,
@@ -452,12 +351,45 @@ def download_video(self, task_id, original_payload):
                 download_url=download_url,
             )
 
-    except (RegexMatchError, PytubeFixError, Exception) as e:
-        # Handle all other errors
-        logger.error(f"Error downloading video: {str(e)}", exc_info=True)
+    # Handle all relevant pytubefix exceptions with personalized error messages
+    except (
+        VideoUnavailable,
+        AgeRestrictedError,
+        VideoPrivate,
+        LiveStreamError,
+        MembersOnly,
+        VideoRegionBlocked,
+        UnknownVideoError,
+        RecordingUnavailable,
+    ) as e:
+        # Mapping each exception to a personalized error message
+        error_messages = {
+            VideoUnavailable: "Video is unavailable.",
+            AgeRestrictedError: "Video is age-restricted.",
+            VideoPrivate: "Video is private.",
+            LiveStreamError: "Video is a live stream.",
+            MembersOnly: "Video is members-only.",
+            VideoRegionBlocked: "Video is blocked in your region.",
+            UnknownVideoError: "An unknown video error occurred.",
+            RecordingUnavailable: "Recording of live stream is unavailable.",
+        }
+
+        error_message = error_messages.get(type(e), "An error occurred.")
+
+        logger.error(f"{error_message}: {str(e)}")
         task.status = "Failed"
         task.save()
 
+        # Send personalized error message to the user
+        notify_progress_update(
+            "error", task_id, channel_layer, {}, error_message=error_message
+        )
+
+    # Handle other pytubefix and general errors
+    except (RegexMatchError, PytubeFixError, Exception) as e:
+        logger.error(f"Error downloading video: {str(e)}", exc_info=True)
+        task.status = "Failed"
+        task.save()
         notify_progress_update(
             "error", task_id, channel_layer, video_metadata or {}, error_message=str(e)
         )
