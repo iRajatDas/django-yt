@@ -368,6 +368,18 @@ def download_video(self, task_id, original_payload):
                 download_url=download_url,
             )
 
+    except VideoUnavailable as e:
+        logger.error(f"VideoUnavailable: {str(e)}", exc_info=True)
+        notify_progress_update(
+            "error",
+            task_id,
+            channel_layer,
+            video_metadata,
+            error_message="The video is unavailable.",
+        )
+        task.status = "Failed"
+        task.save()
+
     except Exception as e:
         logger.error(
             f"Exception type: {type(e).__name__}, Error message: {str(e)}",
