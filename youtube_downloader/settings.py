@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Debug and Security Settings
 SECRET_KEY = config("SECRET_KEY", "your-default-secret-key")
-DEBUG = config("DEBUG", "True") == "True"
+DEBUG = True
 ALLOWED_HOSTS = ["*"]
 DOMAIN = "http://localhost:8000"
 

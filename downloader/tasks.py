@@ -1,6 +1,5 @@
 import os
 import tempfile
-import logging
 import re  # For sanitizing filenames
 from celery import shared_task
 from pytubefix import YouTube
@@ -26,7 +25,12 @@ from pytubefix.exceptions import (
     RecordingUnavailable,
 )
 
+import logging
+
+logging.basicConfig()
+
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 signer = TimestampSigner()
 
 
