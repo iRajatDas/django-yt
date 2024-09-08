@@ -17,3 +17,4 @@ uvicorn[standard]==0.30.6
 wsproto==1.2.0
 websockets==13.0.0
 django-cors-headers==4.4.0
+eventlet
