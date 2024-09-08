@@ -6,7 +6,7 @@ logging.basicConfig()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-logging.info("Logger initialized for consumers.py")
+logging.info("Logger initialized for consumers.py", exc_info=True)
 
 
 class DownloadProgressConsumer(AsyncWebsocketConsumer):
@@ -17,16 +17,23 @@ class DownloadProgressConsumer(AsyncWebsocketConsumer):
         # Join the group for task-specific updates
         await self.channel_layer.group_add(self.task_group_name, self.channel_name)
         await self.accept()
-        logger.info(f"WebSocket connection established for task {self.task_id}")
+        logger.info(
+            f"WebSocket connection established for task {self.task_id}", exc_info=True
+        )
 
     async def disconnect(self, close_code):
         # Leave the group when WebSocket disconnects
         await self.channel_layer.group_discard(self.task_group_name, self.channel_name)
-        logger.info(f"WebSocket connection closed for task {self.task_id}")
+        logger.info(
+            f"WebSocket connection closed for task {self.task_id}", exc_info=True
+        )
 
     async def progress_update(self, event):
         try:
-            logger.info(f"Received event in WebSocket for task {self.task_id}: {event}")
+            logger.info(
+                f"Received event in WebSocket for task {self.task_id}: {event}",
+                exc_info=True,
+            )
             await self.send(text_data=json.dumps(event))
 
             # Close socket on completion/failure
@@ -34,16 +41,24 @@ class DownloadProgressConsumer(AsyncWebsocketConsumer):
                 "error"
             ]:
                 logger.info(
-                    f"Closing WebSocket for task {self.task_id} due to status: {event['status']}"
+                    f"Closing WebSocket for task {self.task_id} due to status: {event['status']}",
+                    exc_info=True,
                 )
                 await self.close()
         except Exception as e:
-            logger.error(f"Error handling progress update for task {self.task_id}: {e}")
+            logger.error(
+                f"Error handling progress update for task {self.task_id}: {e}",
+                exc_info=True,
+            )
             await self.close()
 
     async def websocket_close(self, event):
         try:
-            logger.info(f"WebSocket close requested for task {self.task_id}")
+            logger.info(
+                f"WebSocket close requested for task {self.task_id}", exc_info=True
+            )
             await self.close()
         except Exception as e:
-            logger.error(f"Error closing WebSocket for task {self.task_id}: {e}")
+            logger.error(
+                f"Error closing WebSocket for task {self.task_id}: {e}", exc_info=True
+            )

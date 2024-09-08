@@ -2,8 +2,6 @@ services:
   web:
     build: .
     command: uvicorn youtube_downloader.asgi:application --host 0.0.0.0 --port 8000
-    # command: daphne -b 0.0.0.0 -p 8000 youtube_downloader.asgi:application
-
     volumes:
       - .:/app
     ports:
@@ -11,49 +9,26 @@ services:
     depends_on:
       - db
       - redis
-    environment:
-      - DEBUG=True
-      - POSTGRES_DB=youtube_downloader_db
-      - POSTGRES_USER=rajat
-      - POSTGRES_PASSWORD=secret
-      - POSTGRES_HOST=db
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CLOUDFLARE_R2_BUCKET=digitalocean
-      - CLOUDFLARE_R2_BUCKET_ENDPOINT=https://d3e89dc166edc0c2c8ab4c138097dfd7.r2.cloudflarestorage.com
-      - CLOUDFLARE_R2_ACCESS_KEY=9957947f4180a5e3d98c15eb75a37779
-      - CLOUDFLARE_R2_SECRET_KEY=f896d0c8ac50df859cef4f22a3db97208be0e7ca0eeee577eb5968632a38718a
+    env_file:
+      - .env
 
   worker:
     build: .
-    command: celery -A youtube_downloader worker --loglevel=info
+    command: celery -A youtube_downloader worker --loglevel=info --concurrency=4
     volumes:
       - .:/app
     depends_on:
       - db
       - redis
-    environment:
-      - DEBUG=True
-      - POSTGRES_DB=youtube_downloader_db
-      - POSTGRES_USER=rajat
-      - POSTGRES_PASSWORD=secret
-      - POSTGRES_HOST=db
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CLOUDFLARE_R2_BUCKET=digitalocean
-      - CLOUDFLARE_R2_BUCKET_ENDPOINT=https://d3e89dc166edc0c2c8ab4c138097dfd7.r2.cloudflarestorage.com
-      - CLOUDFLARE_R2_ACCESS_KEY=9957947f4180a5e3d98c15eb75a37779
-      - CLOUDFLARE_R2_SECRET_KEY=f896d0c8ac50df859cef4f22a3db97208be0e7ca0eeee577eb5968632a38718a
+    env_file:
+      - .env
 
   db:
     image: postgres:16
     volumes:
       - postgres_data:/var/lib/postgresql/data/
-    environment:
-      - DEBUG=True
-      - POSTGRES_DB=youtube_downloader_db
-      - POSTGRES_USER=rajat
-      - POSTGRES_PASSWORD=secret
+    env_file:
+      - .env
 
   redis:
     restart: always
