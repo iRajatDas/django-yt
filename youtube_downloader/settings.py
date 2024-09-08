@@ -8,9 +8,9 @@ except ImportError:
 
 import logging
 
-logger = logging.getLogger("django")
-logger.info(f"REDIS_HOST: {config('REDIS_HOST')}")
-logger.info(f"REDIS_PORT: {config('REDIS_PORT')}")
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+
 
 # Base Directory
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,7 +41,7 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-CELERY_BROKER_URL = f"redis://{config('REDIS_HOST')}:6379/0"
+CELERY_BROKER_URL = f"redis://{config('REDIS_HOST', 'localhost')}:6379/0"
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 
 # PostgreSQL Configuration
@@ -122,6 +122,11 @@ LOGGING = {
             "propagate": True,
         },
         "celery": {
+            "handlers": ["console", "file", "error_file"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "celery.task": {
             "handlers": ["console", "file", "error_file"],
             "level": "INFO",
             "propagate": True,
