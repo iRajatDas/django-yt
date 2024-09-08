@@ -132,7 +132,7 @@ def notify_progress_update(
     error_message=None,
 ):
     payload = {
-        "type": "progress.update",
+        "type": "progress_update",
         "stage": stage,
         "status": DownloadTask.objects.get(id=task_id).status,
         "task_id": str(task_id),
