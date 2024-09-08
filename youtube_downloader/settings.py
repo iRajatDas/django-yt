@@ -84,59 +84,59 @@ STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Logging Configuration
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {"format": "{levelname} {asctime} {module} {message}", "style": "{"},
-        "simple": {"format": "{levelname} {message}", "style": "{"},
-    },
-    "handlers": {
-        "console": {
-            "level": "INFO",
-            "class": "logging.StreamHandler",
-            "formatter": "simple",
-        },
-        "file": {
-            "level": "INFO",
-            "class": "logging.FileHandler",
-            "filename": os.path.join(BASE_DIR, "INFO.log"),
-            "formatter": "verbose",
-        },
-        "error_file": {
-            "level": "ERROR",
-            "class": "logging.FileHandler",
-            "filename": os.path.join(BASE_DIR, "error.log"),
-            "formatter": "verbose",
-        },
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["console", "file", "error_file"],
-            "level": "INFO",
-            "propagate": True,
-        },
-        "downloader": {
-            "handlers": ["console", "file", "error_file"],
-            "level": "INFO",
-            "propagate": True,
-        },
-        "celery": {
-            "handlers": ["console", "file", "error_file"],
-            "level": "INFO",
-            "propagate": True,
-        },
-        "celery.task": {
-            "handlers": ["console", "file", "error_file"],
-            "level": "INFO",
-            "propagate": True,
-        },
-    },
-    "root": {
-        "handlers": ["console", "file", "error_file"],
-        "level": "INFO",
-    },
-}
+# LOGGING = {
+#     "version": 1,
+#     "disable_existing_loggers": False,
+#     "formatters": {
+#         "verbose": {"format": "{levelname} {asctime} {module} {message}", "style": "{"},
+#         "simple": {"format": "{levelname} {message}", "style": "{"},
+#     },
+#     "handlers": {
+#         "console": {
+#             "level": "INFO",
+#             "class": "logging.StreamHandler",
+#             "formatter": "simple",
+#         },
+#         "file": {
+#             "level": "INFO",
+#             "class": "logging.FileHandler",
+#             "filename": os.path.join(BASE_DIR, "INFO.log"),
+#             "formatter": "verbose",
+#         },
+#         "error_file": {
+#             "level": "ERROR",
+#             "class": "logging.FileHandler",
+#             "filename": os.path.join(BASE_DIR, "error.log"),
+#             "formatter": "verbose",
+#         },
+#     },
+#     "loggers": {
+#         "django": {
+#             "handlers": ["console", "file", "error_file"],
+#             "level": "INFO",
+#             "propagate": True,
+#         },
+#         "downloader": {
+#             "handlers": ["console", "file", "error_file"],
+#             "level": "INFO",
+#             "propagate": True,
+#         },
+#         "celery": {
+#             "handlers": ["console", "file", "error_file"],
+#             "level": "INFO",
+#             "propagate": True,
+#         },
+#         "celery.task": {
+#             "handlers": ["console", "file", "error_file"],
+#             "level": "INFO",
+#             "propagate": True,
+#         },
+#     },
+#     "root": {
+#         "handlers": ["console", "file", "error_file"],
+#         "level": "INFO",
+#     },
+# }
 
 # Application Definition
 INSTALLED_APPS = [
