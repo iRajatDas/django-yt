@@ -4,7 +4,7 @@ botocore==1.35.5
 channels==4.1.0
 Django==5.1
 python-decouple==3.8
-pytubefix==6.13.0
+pytubefix==6.15.4
 redis==5.0.8
 redis_lock==0.2.0
 celery==5.4.0
@@ -15,7 +15,5 @@ django-storages==1.14.4
 channels_redis==4.2.0
 uvicorn[standard]==0.30.6
 wsproto==1.2.0
-websockets==13.0.1
+websockets==13.0.0
 django-cors-headers==4.4.0
-colorlog==6.8.2
-django-log-request-id==2.1.0

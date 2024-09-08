@@ -14,11 +14,7 @@ import urllib.parse
 import subprocess
 import boto3
 from botocore.exceptions import NoCredentialsError
-from django.db import connection
-from contextlib import contextmanager
 from boto3.s3.transfer import TransferConfig
-from time import sleep
-
 from pytubefix.exceptions import (
     VideoUnavailable,
     AgeRestrictedError,
@@ -28,12 +24,9 @@ from pytubefix.exceptions import (
     VideoRegionBlocked,
     UnknownVideoError,
     RecordingUnavailable,
-    PytubeFixError,
-    RegexMatchError,
 )
 
 logger = logging.getLogger(__name__)
-
 signer = TimestampSigner()
 
 
@@ -198,7 +191,8 @@ def run_ffmpeg_with_progress(cmd, task, channel_layer, metadata):
         return process.returncode
     except Exception as e:
         logger.info(f"Error running ffmpeg: {str(e)}")
-        task.status = "Failed"
+        task.status = "failed"
+        task.stage = "error"
         task.save()
         notify_progress_update(
             "error", task.id, channel_layer, metadata, error_message=str(e)
@@ -222,6 +216,10 @@ def download_video(self, task_id, original_payload):
 
     try:
         # --- Fetch video metadata ---
+        task.status = "in_progress"
+        task.stage = "fetching_metadata"
+        task.save()
+
         yt = YouTube(
             task.url,
             use_oauth=True,
@@ -242,6 +240,9 @@ def download_video(self, task_id, original_payload):
 
         # --- Select video quality based on resolution ---
         resolution = original_payload["resolution"]
+        task.stage = "downloading_video"
+        task.save()
+
         if resolution == "highest-available":
             video_stream = (
                 yt.streams.filter(adaptive=True, file_extension="mp4")
@@ -277,6 +278,9 @@ def download_video(self, task_id, original_payload):
 
         # --- Download audio (if required) ---
         if task.include_audio:
+            task.stage = "downloading_audio"
+            task.save()
+
             audio_stream = yt.streams.get_audio_only()
             audio_filename = tempfile.NamedTemporaryFile(
                 delete=False, suffix=".mp3"
@@ -295,6 +299,9 @@ def download_video(self, task_id, original_payload):
             audio_stream.download(filename=audio_filename)
 
             # --- Merge video and audio ---
+            task.stage = "merging"
+            task.save()
+
             output_filename = tempfile.NamedTemporaryFile(
                 delete=False, suffix=".mp4"
             ).name
@@ -308,6 +315,9 @@ def download_video(self, task_id, original_payload):
         key_name = f"{sanitized_title}_{resolution}.mp4"
 
         # --- Upload the file with progress ---
+        task.stage = "uploading"
+        task.save()
+
         bucket_name = settings.CLOUDFLARE_R2_CONFIG_OPTIONS["bucket_name"]
         storage_options = settings.CLOUDFLARE_R2_CONFIG_OPTIONS
 
@@ -325,8 +335,10 @@ def download_video(self, task_id, original_payload):
         file_size = os.path.getsize(output_filename)
 
         # --- Complete the process ---
-        task.status = "Completed"
+        task.status = "completed"
+        task.stage = "completed"
         task.progress = 100.0
+        task.file_size = file_size
         task.save()
 
         video_metadata.update(
@@ -337,26 +349,13 @@ def download_video(self, task_id, original_payload):
         )
 
         notify_progress_update(
-            "ready_to_serve",
+            "completed",
             task_id,
             channel_layer,
             video_metadata,
             progress=100,
             download_url=download_url,
         )
-
-    # except
-
-    # except VideoUnavailable as e:
-    #     task.status = "Failed"
-    #     task.save()
-    #     notify_progress_update(
-    #         "error",
-    #         task_id,
-    #         channel_layer,
-    #         metadata=None,
-    #         error_message=f"Oops! The video is unavailable.",
-    #     )
 
     except (
         VideoUnavailable,
@@ -380,11 +379,10 @@ def download_video(self, task_id, original_payload):
         }
 
         error_message = error_messages.get(type(e), "An error occurred.")
-        task.status = "Failed"
+        task.status = "failed"
+        task.stage = "error"
         task.save()
         logger.info(f"Error downloading video msg: {error_message}")
-
-        # --- Check if web socket is open ---
 
         notify_progress_update(
             "error",
@@ -400,7 +398,8 @@ def download_video(self, task_id, original_payload):
             "error", task_id, channel_layer, metadata=None, error_message=str(e)
         )
 
-        task.status = "Failed"
+        task.status = "failed"
+        task.stage = "error"
         task.save()
     finally:
         # Cleanup files if they were created

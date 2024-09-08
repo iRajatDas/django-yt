@@ -312,7 +312,7 @@
           startDownloadBtn.disabled = true;
           inputArrow.style.pointerEvents = "none";
           statusText.innerText = data.stage;
-          if (data.stage === "ready_to_serve") {
+          if (data.stage === "completed") {
             progressPercent.innerText = "100%";
             // Update button text and reset the form
             startDownloadBtn.innerHTML = "Download another video";

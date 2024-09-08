@@ -27,23 +27,20 @@ def validate_youtube_url(url):
     return re.match(youtube_regex, url) is not None
 
 
-@csrf_exempt  # Remove or secure properly in production
+@csrf_exempt
 def start_download(request):
     if request.method != "POST":
         return JsonResponse({"error": "Invalid request method"}, status=405)
 
     try:
-        # Load and validate input JSON
         data = json.loads(request.body)
         url = data.get("url")
         resolution = data.get("resolution", "highest-available")
         include_audio = data.get("include_audio", True)
 
-        # Ensure URL is provided
         if not url:
             return JsonResponse({"error": "URL is required"}, status=400)
 
-        # Validate the URL format
         try:
             URLValidator()(url)
             if not validate_youtube_url(url):
@@ -51,28 +48,39 @@ def start_download(request):
         except ValidationError:
             return JsonResponse({"error": "Invalid URL"}, status=400)
 
-        # Create the task and save initial data
+        # Check for existing task to prevent duplication
+        existing_task = DownloadTask.objects.filter(
+            url=url, status="in_progress"
+        ).first()
+        if existing_task:
+            return JsonResponse(
+                {
+                    "error": "A download task for this video is already in progress.",
+                    "task_id": str(existing_task.id),
+                    "status": existing_task.status,
+                    "callback_url": existing_task.callback_url,
+                }
+            )
+
         task = DownloadTask.objects.create(
             url=url,
             resolution=resolution,
             include_audio=include_audio,
-            status="Pending",
+            status="pending",
+            stage="queued",
         )
 
-        # Generate WebSocket callback URL
         task.callback_url = (
             f"{request.scheme}://{request.get_host()}/ws/download/{task.id}"
         )
         task.save()
 
-        # Prepare the original payload for traceability
         original_payload = {
             "url": url,
             "resolution": resolution,
             "include_audio": include_audio,
         }
 
-        # Start the download task with original payload
         download_video.delay(str(task.id), original_payload)
 
         return JsonResponse(
@@ -92,29 +100,26 @@ def start_download(request):
 
 def check_status(request, task_id):
     """Check the status and progress of a specific download task."""
-    task = get_object_or_404(DownloadTask, id=task_id)
+    logger.info(f"Fetching status for task_id: {task_id}")
+    task = DownloadTask.objects.filter(id=task_id).first()
+    if not task:
+        logger.error(f"Task with id {task_id} not found")
+        return JsonResponse({"error": "Task not found"}, status=404)
+
     return JsonResponse(
-        {
-            "status": task.status,
-            "progress": task.progress,
-            "download_url": task.file.url if task.file else None,
-        }
+        task.to_dict(),
     )
 
 
 def download_file(request, signed_filename):
-    """Serve a file download via signed URL."""
     try:
-        # Decode and verify the signed filename
         signed_filename = urllib.parse.unquote(signed_filename)
         filename = signer.unsign(signed_filename, max_age=86400)
         file_path = os.path.join(settings.MEDIA_ROOT, "downloads", filename)
 
-        # Check if file exists
         if not os.path.exists(file_path):
             raise Http404("File not found")
 
-        # Serve the file for download
         return HttpResponse(
             open(file_path, "rb").read(), content_type="application/octet-stream"
         )
@@ -129,5 +134,4 @@ def download_file(request, signed_filename):
 
 
 def index(request):
-    """Render the index page for the downloader app."""
     return render(request, "downloader/index.html")
