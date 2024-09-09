@@ -16,8 +16,7 @@ services:
 
   worker:
     build: .
-    container_name: worker
-    command: celery -A youtube_downloader worker --loglevel=INFO --concurrency=4
+    command: celery -A youtube_downloader worker --loglevel=INFO -E --concurrency=4
     volumes:
       - .:/app
     depends_on:
