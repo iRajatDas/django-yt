@@ -1,3 +1,5 @@
+version: '3'
+
 services:
   web:
     build: .
@@ -19,6 +21,17 @@ services:
       - .:/app
     depends_on:
       - db
+      - redis
+    env_file:
+      - .env
+
+  flower:
+    build: .
+    command: celery -A youtube_downloader flower --port=5555 --broker=redis://redis:6379/0 --persisten=True
+    ports:
+      - "5555:5555"
+    depends_on:
+      - worker
       - redis
     env_file:
       - .env
