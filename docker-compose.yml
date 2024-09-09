@@ -16,6 +16,7 @@ services:
 
   worker:
     build: .
+    container_name: worker
     command: celery -A youtube_downloader worker --loglevel=info --concurrency=4
     volumes:
       - .:/app
@@ -26,8 +27,8 @@ services:
       - .env
 
   flower:
-    build: .
-    command: celery -A youtube_downloader flower --port=5555 --broker=redis://redis:6379/0 --persisten=True
+    image: mher/flower
+    command: celery flower --port=5555 --broker=redis://redis:6379/0
     ports:
       - "5555:5555"
     depends_on:
