@@ -1,7 +1,7 @@
 services:
   web:
     build: .
-    command: daphne -u /tmp/daphne.sock youtube_downloader.asgi:application
+    command: daphne -b 0.0.0.0 -p 8000 youtube_downloader.asgi:application
     volumes:
       - .:/app
     expose:
