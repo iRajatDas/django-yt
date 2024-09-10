@@ -25,12 +25,15 @@ COPY --from=builder /app/requirements.txt .
 RUN pip install --no-cache --no-compile /wheels/* && rm -rf /wheels
 
 COPY . .
+# Copy SSL certificates
+COPY ./certs/cloudflare_origin_cert.pem /etc/ssl/certs/cloudflare_origin_cert.pem
+COPY ./certs/cloudflare_origin_key.pem /etc/ssl/private/cloudflare_origin_key.pem
 
 # Create directory for UNIX socket
 RUN mkdir -p /tmp
 
 EXPOSE 8000
 
+
 # CMD ["daphne", "-u", "/tmp/daphne.sock", "youtube_downloader.asgi:application"]
-# daphne -e ssl:443:privateKey=/etc/ssl/private/cloudflare_origin_key.pem:certKey=/etc/ssl/certs/cloudflare_origin_cert.crt -u /tmp/daphne.sock youtube_downloader.asgi:application
-CMD ["daphne", "-e", "ssl:443:privateKey=/etc/ssl/private/cloudflare_origin_key.pem:certKey=/etc/ssl/certs/cloudflare_origin_cert.crt", "-u", "/tmp/daphne.sock", "youtube_downloader.asgi:application"]
+CMD ["daphne", "-e", "ssl:443:privateKey=/etc/ssl/private/cloudflare_origin_key.pem:certKey=/etc/ssl/certs/cloudflare_origin_cert.pem", "-u", "/tmp/daphne.sock", "youtube_downloader.asgi:application"]
