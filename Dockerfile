@@ -31,4 +31,6 @@ RUN mkdir -p /tmp
 
 EXPOSE 8000
 
-CMD ["daphne", "-u", "/tmp/daphne.sock", "youtube_downloader.asgi:application"]
+# CMD ["daphne", "-u", "/tmp/daphne.sock", "youtube_downloader.asgi:application"]
+# daphne -e ssl:443:privateKey=/etc/ssl/private/cloudflare_origin_key.pem:certKey=/etc/ssl/certs/cloudflare_origin_cert.crt -u /tmp/daphne.sock youtube_downloader.asgi:application
+CMD ["daphne", "-e", "ssl:443:privateKey=/etc/ssl/private/cloudflare_origin_key.pem:certKey=/etc/ssl/certs/cloudflare_origin_cert.crt", "-u", "/tmp/daphne.sock", "youtube_downloader.asgi:application"]
