@@ -26,8 +26,9 @@ RUN pip install --no-cache --no-compile /wheels/* && rm -rf /wheels
 
 COPY . .
 
+# Create directory for UNIX socket
+RUN mkdir -p /tmp
+
 EXPOSE 8000
 
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "youtube_downloader.asgi:application"]
-
-
+CMD ["daphne", "-u", "/tmp/daphne.sock", "youtube_downloader.asgi:application"]
