@@ -23,6 +23,16 @@ services:
     env_file:
       - .env
 
+  flower:
+    build: .
+    command: celery -A youtube_downloader flower --port=5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    env_file:
+      - .env
+
   db:
     image: postgres:16
     volumes:
