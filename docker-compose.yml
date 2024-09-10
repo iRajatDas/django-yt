@@ -48,8 +48,11 @@ services:
     image: nginx:latest
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
+      - /etc/ssl/certs:/etc/ssl/certs  # Mount SSL certs directory
+      - /etc/ssl/private:/etc/ssl/private  # Mount SSL private keys directory
     ports:
       - "80:80"
+      - "443:443"  # Expose HTTPS port
     depends_on:
       - web
 
