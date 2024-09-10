@@ -29,9 +29,6 @@ COPY . .
 COPY ./certs/cloudflare_origin_cert.pem /etc/ssl/certs/cloudflare_origin_cert.pem
 COPY ./certs/cloudflare_origin_key.pem /etc/ssl/private/cloudflare_origin_key.pem
 
-# Create directory for UNIX socket
-RUN mkdir -p /tmp
+EXPOSE 8000
 
-# EXPOSE 8000
-
-CMD ["daphne", "-u", "/tmp/daphne.sock", "youtube_downloader.asgi:application"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "youtube_downloader.asgi:application"]

@@ -1,10 +1,9 @@
 services:
   web:
     build: .
-    command: daphne -u /tmp/daphne.sock youtube_downloader.asgi:application
+    command: daphne -b 0.0.0.0 -p 8000 youtube_downloader.asgi:application
     volumes:
       - .:/app
-      - daphne-socket:/tmp  # Shared volume for the Unix socket
     depends_on:
       - db
       - redis
@@ -49,7 +48,6 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf
       - /etc/ssl/certs:/etc/ssl/certs  # Mount SSL certs directory
       - /etc/ssl/private:/etc/ssl/private  # Mount SSL private keys directory
-      - daphne-socket:/tmp  # Shared volume for the Unix socket
     ports:
       - "80:80"
       - "443:443"  # Expose HTTPS port
@@ -58,4 +56,3 @@ services:
 
 volumes:
   postgres_data:
-  daphne-socket:  # Define a shared volume for the Unix socket
