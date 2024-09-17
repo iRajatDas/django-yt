@@ -309,7 +309,9 @@ def download_video(self, task_id, original_payload):
             output_filename = tempfile.NamedTemporaryFile(
                 delete=False, suffix=".mp4"
             ).name
-            merge_cmd = f"ffmpeg -y -i '{video_filename}' -i '{audio_filename}' -c:v copy -map 0:v:0 -map 1:a:0 -shortest '{output_filename}'"
+            # merge_cmd = f"ffmpeg -y -i '{video_filename}' -i '{audio_filename}' -c:v copy -map 0:v:0 -map 1:a:0 -shortest '{output_filename}'"
+            # merge_cmd = f"ffmpeg -y -i '{video_filename}' -i '{audio_filename}' -c:v copy -c:a copy -map 0:v:0 -map 1:a:0 -shortest '{output_filename}'"
+            merge_cmd = f"ffmpeg -y -i '{video_filename}' -i '{audio_filename}' -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -map 0:v:0 -map 1:a:0 -shortest '{output_filename}'"
             run_ffmpeg_with_progress(merge_cmd, task, channel_layer, video_metadata)
         else:
             output_filename = video_filename
